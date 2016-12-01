@@ -1,0 +1,536 @@
+/*
+ * Copyright (C) 2011-2016 Intel Corporation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in
+ *     the documentation and/or other materials provided with the
+ *     distribution.
+ *   * Neither the name of Intel Corporation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+
+
+#include "string.h"
+#include "stdlib.h"
+#include "stdio.h"
+#include "sgx_trts.h"
+#include "sgx_thread.h"
+#include "sgx_tseal.h"
+
+#include "Enclave_t.h"
+
+#include "tomcrypt_macros.h"
+
+void printf(const char *fmt, ...)
+{
+    char buf[BUFSIZ] = {'\0'};
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, BUFSIZ, fmt, ap);
+    va_end(ap);
+    ocall_print_string(buf);
+}
+
+
+unsigned char savedSecret[100] = {'\0'};
+unsigned char savedPlaintext[100] = {'\0'};
+unsigned char savedCiphertext[100] = {'\0'};
+
+
+
+/* compress 512-bits */
+#ifdef LTC_CLEAN_STACK
+static int _sha256_compresss(hash_statee * md, unsigned char *buf)
+#else
+static int  sha256_compresss(hash_statee * md, unsigned char *buf)
+#endif
+{
+    unsigned int S[8], W[64], t0, t1;
+#ifdef LTC_SMALL_CODE
+    int t;
+#endif
+    int i;
+
+    /* copy state into S */
+    for (i = 0; i < 8; i++) {
+        S[i] = md->sha256.state[i];
+    }
+
+    /* copy the state into 512-bits into W[0..15] */
+    for (i = 0; i < 16; i++) {
+        LOAD32H(W[i], buf + (4*i));
+    }
+
+    /* fill W[16..63] */
+    for (i = 16; i < 64; i++) {
+        W[i] = Gamma1(W[i - 2]) + W[i - 7] + Gamma0(W[i - 15]) + W[i - 16];
+    }        
+
+    /* Compress */
+#ifdef LTC_SMALL_CODE   
+#define RND(a,b,c,d,e,f,g,h,i)                         \
+     t0 = h + Sigma1(e) + Ch(e, f, g) + K[i] + W[i];   \
+     t1 = Sigma0(a) + Maj(a, b, c);                    \
+     d += t0;                                          \
+     h  = t0 + t1;
+
+     for (i = 0; i < 64; ++i) {
+         RND(S[0],S[1],S[2],S[3],S[4],S[5],S[6],S[7],i);
+         t = S[7]; S[7] = S[6]; S[6] = S[5]; S[5] = S[4]; 
+         S[4] = S[3]; S[3] = S[2]; S[2] = S[1]; S[1] = S[0]; S[0] = t;
+     }  
+#else 
+#define RND(a,b,c,d,e,f,g,h,i,ki)                    \
+     t0 = h + Sigma1(e) + Ch(e, f, g) + ki + W[i];   \
+     t1 = Sigma0(a) + Maj(a, b, c);                  \
+     d += t0;                                        \
+     h  = t0 + t1;
+
+    RND(S[0],S[1],S[2],S[3],S[4],S[5],S[6],S[7],0,0x428a2f98);
+    RND(S[7],S[0],S[1],S[2],S[3],S[4],S[5],S[6],1,0x71374491);
+    RND(S[6],S[7],S[0],S[1],S[2],S[3],S[4],S[5],2,0xb5c0fbcf);
+    RND(S[5],S[6],S[7],S[0],S[1],S[2],S[3],S[4],3,0xe9b5dba5);
+    RND(S[4],S[5],S[6],S[7],S[0],S[1],S[2],S[3],4,0x3956c25b);
+    RND(S[3],S[4],S[5],S[6],S[7],S[0],S[1],S[2],5,0x59f111f1);
+    RND(S[2],S[3],S[4],S[5],S[6],S[7],S[0],S[1],6,0x923f82a4);
+    RND(S[1],S[2],S[3],S[4],S[5],S[6],S[7],S[0],7,0xab1c5ed5);
+    RND(S[0],S[1],S[2],S[3],S[4],S[5],S[6],S[7],8,0xd807aa98);
+    RND(S[7],S[0],S[1],S[2],S[3],S[4],S[5],S[6],9,0x12835b01);
+    RND(S[6],S[7],S[0],S[1],S[2],S[3],S[4],S[5],10,0x243185be);
+    RND(S[5],S[6],S[7],S[0],S[1],S[2],S[3],S[4],11,0x550c7dc3);
+    RND(S[4],S[5],S[6],S[7],S[0],S[1],S[2],S[3],12,0x72be5d74);
+    RND(S[3],S[4],S[5],S[6],S[7],S[0],S[1],S[2],13,0x80deb1fe);
+    RND(S[2],S[3],S[4],S[5],S[6],S[7],S[0],S[1],14,0x9bdc06a7);
+    RND(S[1],S[2],S[3],S[4],S[5],S[6],S[7],S[0],15,0xc19bf174);
+    RND(S[0],S[1],S[2],S[3],S[4],S[5],S[6],S[7],16,0xe49b69c1);
+    RND(S[7],S[0],S[1],S[2],S[3],S[4],S[5],S[6],17,0xefbe4786);
+    RND(S[6],S[7],S[0],S[1],S[2],S[3],S[4],S[5],18,0x0fc19dc6);
+    RND(S[5],S[6],S[7],S[0],S[1],S[2],S[3],S[4],19,0x240ca1cc);
+    RND(S[4],S[5],S[6],S[7],S[0],S[1],S[2],S[3],20,0x2de92c6f);
+    RND(S[3],S[4],S[5],S[6],S[7],S[0],S[1],S[2],21,0x4a7484aa);
+    RND(S[2],S[3],S[4],S[5],S[6],S[7],S[0],S[1],22,0x5cb0a9dc);
+    RND(S[1],S[2],S[3],S[4],S[5],S[6],S[7],S[0],23,0x76f988da);
+    RND(S[0],S[1],S[2],S[3],S[4],S[5],S[6],S[7],24,0x983e5152);
+    RND(S[7],S[0],S[1],S[2],S[3],S[4],S[5],S[6],25,0xa831c66d);
+    RND(S[6],S[7],S[0],S[1],S[2],S[3],S[4],S[5],26,0xb00327c8);
+    RND(S[5],S[6],S[7],S[0],S[1],S[2],S[3],S[4],27,0xbf597fc7);
+    RND(S[4],S[5],S[6],S[7],S[0],S[1],S[2],S[3],28,0xc6e00bf3);
+    RND(S[3],S[4],S[5],S[6],S[7],S[0],S[1],S[2],29,0xd5a79147);
+    RND(S[2],S[3],S[4],S[5],S[6],S[7],S[0],S[1],30,0x06ca6351);
+    RND(S[1],S[2],S[3],S[4],S[5],S[6],S[7],S[0],31,0x14292967);
+    RND(S[0],S[1],S[2],S[3],S[4],S[5],S[6],S[7],32,0x27b70a85);
+    RND(S[7],S[0],S[1],S[2],S[3],S[4],S[5],S[6],33,0x2e1b2138);
+    RND(S[6],S[7],S[0],S[1],S[2],S[3],S[4],S[5],34,0x4d2c6dfc);
+    RND(S[5],S[6],S[7],S[0],S[1],S[2],S[3],S[4],35,0x53380d13);
+    RND(S[4],S[5],S[6],S[7],S[0],S[1],S[2],S[3],36,0x650a7354);
+    RND(S[3],S[4],S[5],S[6],S[7],S[0],S[1],S[2],37,0x766a0abb);
+    RND(S[2],S[3],S[4],S[5],S[6],S[7],S[0],S[1],38,0x81c2c92e);
+    RND(S[1],S[2],S[3],S[4],S[5],S[6],S[7],S[0],39,0x92722c85);
+    RND(S[0],S[1],S[2],S[3],S[4],S[5],S[6],S[7],40,0xa2bfe8a1);
+    RND(S[7],S[0],S[1],S[2],S[3],S[4],S[5],S[6],41,0xa81a664b);
+    RND(S[6],S[7],S[0],S[1],S[2],S[3],S[4],S[5],42,0xc24b8b70);
+    RND(S[5],S[6],S[7],S[0],S[1],S[2],S[3],S[4],43,0xc76c51a3);
+    RND(S[4],S[5],S[6],S[7],S[0],S[1],S[2],S[3],44,0xd192e819);
+    RND(S[3],S[4],S[5],S[6],S[7],S[0],S[1],S[2],45,0xd6990624);
+    RND(S[2],S[3],S[4],S[5],S[6],S[7],S[0],S[1],46,0xf40e3585);
+    RND(S[1],S[2],S[3],S[4],S[5],S[6],S[7],S[0],47,0x106aa070);
+    RND(S[0],S[1],S[2],S[3],S[4],S[5],S[6],S[7],48,0x19a4c116);
+    RND(S[7],S[0],S[1],S[2],S[3],S[4],S[5],S[6],49,0x1e376c08);
+    RND(S[6],S[7],S[0],S[1],S[2],S[3],S[4],S[5],50,0x2748774c);
+    RND(S[5],S[6],S[7],S[0],S[1],S[2],S[3],S[4],51,0x34b0bcb5);
+    RND(S[4],S[5],S[6],S[7],S[0],S[1],S[2],S[3],52,0x391c0cb3);
+    RND(S[3],S[4],S[5],S[6],S[7],S[0],S[1],S[2],53,0x4ed8aa4a);
+    RND(S[2],S[3],S[4],S[5],S[6],S[7],S[0],S[1],54,0x5b9cca4f);
+    RND(S[1],S[2],S[3],S[4],S[5],S[6],S[7],S[0],55,0x682e6ff3);
+    RND(S[0],S[1],S[2],S[3],S[4],S[5],S[6],S[7],56,0x748f82ee);
+    RND(S[7],S[0],S[1],S[2],S[3],S[4],S[5],S[6],57,0x78a5636f);
+    RND(S[6],S[7],S[0],S[1],S[2],S[3],S[4],S[5],58,0x84c87814);
+    RND(S[5],S[6],S[7],S[0],S[1],S[2],S[3],S[4],59,0x8cc70208);
+    RND(S[4],S[5],S[6],S[7],S[0],S[1],S[2],S[3],60,0x90befffa);
+    RND(S[3],S[4],S[5],S[6],S[7],S[0],S[1],S[2],61,0xa4506ceb);
+    RND(S[2],S[3],S[4],S[5],S[6],S[7],S[0],S[1],62,0xbef9a3f7);
+    RND(S[1],S[2],S[3],S[4],S[5],S[6],S[7],S[0],63,0xc67178f2);
+
+#undef RND     
+    
+#endif     
+
+    /* feedback */
+    for (i = 0; i < 8; i++) {
+        md->sha256.state[i] = md->sha256.state[i] + S[i];
+    }
+    return 0;
+}
+
+#ifdef LTC_CLEAN_STACK
+static int sha256_compresss(hash_statee * md, unsigned char *buf)
+{
+    int err;
+	printf("ran!\n");
+    err = _sha256_compresss(md, buf);
+	printf("ran %d!\n", err);
+    burn_stack(sizeof(ulong32) * 74);
+    return err;
+}
+#endif
+
+#define HASH_PROCESSS(func_name, compress_name, state_var, block_size)                       \
+int func_name (hash_statee *md, unsigned char *in, unsigned long inlen)               \
+{                                                                                           \
+    unsigned long n;                                                                        \
+    int           err;                                                                      \
+    if (md-> state_var .curlen > sizeof(md-> state_var .buf)) {                             \
+       return -1;                                                            \
+    }                                                                                       \
+    if ((md-> state_var .length + inlen) < md-> state_var .length) {	                    \
+      return -1;                                                           \
+    }                                                                                       \
+    while (inlen > 0) {                                                                     \
+        if (md-> state_var .curlen == 0 && inlen >= block_size) {                           \
+           if ((err = compress_name (md, (unsigned char *)in)) != 0) {               \
+              return err;                                                                   \
+           }                                                                                \
+           md-> state_var .length += block_size * 8;                                        \
+           in             += block_size;                                                    \
+           inlen          -= block_size;                                                    \
+        } else {                                                                            \
+           n = MIN(inlen, (block_size - md-> state_var .curlen));                           \
+           XMEMCPY(md-> state_var .buf + md-> state_var.curlen, in, (size_t)n);              \
+           md-> state_var .curlen += n;                                                     \
+           in             += n;                                                             \
+           inlen          -= n;                                                             \
+           if (md-> state_var .curlen == block_size) {                                      \
+              if ((err = compress_name (md, md-> state_var .buf)) != 0) {            \
+                 return err;                                                                \
+              }                                                                             \
+              md-> state_var .length += 8*block_size;                                       \
+              md-> state_var .curlen = 0;                                                   \
+           }                                                                                \
+       }                                                                                    \
+    }                                                                                       \
+    return 0;                                                                        \
+}
+HASH_PROCESSS(sha256_processs, sha256_compresss, sha256, 64)
+
+int sha256_donee(hash_statee *md, unsigned char *out)
+{
+    int i;
+
+    if (md->sha256.curlen >= sizeof(md->sha256.buf)) {
+       return -1;
+    }
+
+
+    /* increase the length of the message */
+    md->sha256.length += md->sha256.curlen * 8;
+
+    /* append the '1' bit */
+    md->sha256.buf[md->sha256.curlen++] = (unsigned char)0x80;
+
+    /* if the length is currently above 56 bytes we append zeros
+     * then compress.  Then we can fall back to padding zeros and length
+     * encoding like normal.
+     */
+    if (md->sha256.curlen > 56) {
+        while (md->sha256.curlen < 64) {
+            md->sha256.buf[md->sha256.curlen++] = (unsigned char)0;
+        }
+        sha256_compresss(md, md->sha256.buf);
+        md->sha256.curlen = 0;
+    }
+
+    /* pad upto 56 bytes of zeroes */
+    while (md->sha256.curlen < 56) {
+        md->sha256.buf[md->sha256.curlen++] = (unsigned char)0;
+    }
+
+    /* store length */
+    STORE64H(md->sha256.length, md->sha256.buf+56);
+    sha256_compresss(md, md->sha256.buf);
+
+    /* copy output */
+    for (i = 0; i < 8; i++) {
+        STORE32H(md->sha256.state[i], out+(4*i));
+    }
+
+    return 0;
+}
+
+int sha256_initt(hash_statee * md)
+{
+    md->sha256.curlen = 0;
+    md->sha256.length = 0;
+    md->sha256.state[0] = 0x6A09E667UL;
+    md->sha256.state[1] = 0xBB67AE85UL;
+    md->sha256.state[2] = 0x3C6EF372UL;
+    md->sha256.state[3] = 0xA54FF53AUL;
+    md->sha256.state[4] = 0x510E527FUL;
+    md->sha256.state[5] = 0x9B05688CUL;
+    md->sha256.state[6] = 0x1F83D9ABUL;
+    md->sha256.state[7] = 0x5BE0CD19UL;
+    return 0;
+}
+
+/*
+int hash(unsigned char* input, int length, unsigned char *out){
+	int err;
+	hash_statee state;
+	
+	sha256_initt(&state);
+
+	sha256_processs(&state, input, length);
+	
+	err = sha256_donee(&state, out);
+	if(err == 0){
+		return 0;
+	}
+	else{
+		return -1;
+	}
+	
+}
+
+*/
+
+
+
+
+
+
+
+
+
+
+void gen_sha256(char *plaintext, size_t len)
+{
+   if(len > strlen(plaintext))
+   {
+       memcpy(savedPlaintext, plaintext, strlen(plaintext) + 1);
+   }
+   else
+   {
+      memcpy(plaintext, "false", strlen("false") + 1);
+   }
+   printf("Inside  the enclave - input  plaintext:  \"%s\"\n", savedPlaintext);
+   //printf("Inside  the enclave - input plaintext: \"%s\" %d \n", savedSecret, strlen((char*)savedSecret));
+//   unsigned char out[100] = {'\0'};
+   unsigned char hello[12];
+//   memcpy(hello, "hello world", 12);
+//   printf("Inside  the enclave - input plaintext: \"%s\" %d \n", hello, strlen((char*)hello));
+//   hash(savedSecret, strlen(savedSecret), out);
+	int err;   
+	hash_statee state;
+	sha256_initt(&state);
+	sha256_processs(&state, savedPlaintext, strlen((char *)savedPlaintext));
+	//sha256_processs(&state, hello, strlen((char *)hello));
+	err = sha256_donee(&state, savedCiphertext);
+//	int i;
+        printf("Inside  the enclave - output ciphertext: \"");
+        unsigned char *i = savedCiphertext;
+        while(*i){
+		printf("%x", *i);
+                *i++;
+	}
+        printf("\"\n");
+}
+
+void get_sha256(unsigned char *ciphertext, size_t len) {
+    if (len > strlen((char *)savedCiphertext))
+    {
+        memcpy(ciphertext, savedCiphertext, strlen((char *)savedCiphertext) + 1);
+    } else {
+        memcpy(ciphertext, "false", strlen("false") + 1);
+    }
+
+//    printf("Inside  the enclave - saved  secret: \"%s\"\n", savedSecret);
+//    printf("Inside  the enclave - output secret: \"%s\"\n", ciphertext);
+}
+
+void dump_secret(char *secret, size_t len)
+{
+
+   printf("Inside  the enclave - saved  secret: \"%s\"\n", savedSecret);
+   if(len > strlen(secret))
+   {
+       memcpy(savedSecret, secret, strlen(secret) + 1);
+   }
+   else
+   {
+      memcpy(secret, "false", strlen("false") + 1);
+   }
+   printf("Inside  the enclave - input  secret: \"%s\"\n", secret);
+   printf("Inside  the enclave - saved  secret: \"%s\"\n", savedSecret);
+
+    sgx_sealed_data_t secretData = {0};
+    uint32_t add_mac_txt_size = 0;
+    uint32_t txt_encrypt_size = strlen(secret)+1;
+    uint32_t secretDataSize = sgx_calc_sealed_data_size(add_mac_txt_size, txt_encrypt_size);
+   
+//    sgx_status_t ret = sgx_seal_data(plain_text_length, plain_text, sizeof(g_secret), (uint8_t *)&g_secret, sealed_len, (sgx_sealed_data_t *)temp_sealed_buf);
+//    if(ret != SGX_SUCCESS)
+    
+
+
+}
+
+
+void get_secret(char *secret, size_t len) {
+    if (len > strlen((char *)savedSecret))
+    {
+        memcpy(secret, savedSecret, strlen((char *)savedSecret) + 1);
+    } else {
+        memcpy(secret, "false", strlen("false") + 1);
+    }
+
+    printf("Inside  the enclave - saved  secret: \"%s\"\n", savedSecret);
+    printf("Inside  the enclave - output secret: \"%s\"\n", secret);
+}
+
+
+
+
+
+uint32_t g_secret;
+sgx_thread_mutex_t g_mutex = SGX_THREAD_MUTEX_INITIALIZER;
+
+
+static inline void free_allocated_memory(void *pointer)
+{
+    if(pointer != NULL)
+    {
+        free(pointer);
+        pointer = NULL;
+    }
+}
+
+
+int initialize_enclave(struct sealed_buf_t *sealed_buf)
+{
+    // sealed_buf == NULL indicates it is the first time to initialize the enclave
+    if(sealed_buf == NULL)
+    {
+        sgx_thread_mutex_lock(&g_mutex);
+        g_secret = 0;
+        sgx_thread_mutex_unlock(&g_mutex);
+        return 0;
+    }
+
+    // It is not the first time to initialize the enclave
+    // Reinitialize the enclave to recover the secret data from the input backup sealed data.
+
+    uint32_t len = sizeof(sgx_sealed_data_t) + sizeof(uint32_t);
+    //Check the sealed_buf length and check the outside pointers deeply
+    if(sealed_buf->sealed_buf_ptr[MOD2(sealed_buf->index)] == NULL ||
+        sealed_buf->sealed_buf_ptr[MOD2(sealed_buf->index + 1)] == NULL ||
+        !sgx_is_outside_enclave(sealed_buf->sealed_buf_ptr[MOD2(sealed_buf->index)], len) ||
+        !sgx_is_outside_enclave(sealed_buf->sealed_buf_ptr[MOD2(sealed_buf->index + 1)], len))
+    {
+        print("Incorrect input parameter(s).\n");
+        return -1;
+    }
+
+    // Retrieve the secret from current backup sealed data
+    uint32_t unsealed_data = 0;
+    uint32_t unsealed_data_length = sizeof(g_secret);
+    uint8_t *plain_text = NULL;
+    uint32_t plain_text_length = 0;
+    uint8_t *temp_sealed_buf = (uint8_t *)malloc(len);
+    if(temp_sealed_buf == NULL)
+    {
+        print("Out of memory.\n");
+        return -1;
+    }
+
+    sgx_thread_mutex_lock(&g_mutex);
+    memcpy(temp_sealed_buf, sealed_buf->sealed_buf_ptr[MOD2(sealed_buf->index)], len);
+
+    // Unseal current sealed buf
+    sgx_status_t ret = sgx_unseal_data((sgx_sealed_data_t *)temp_sealed_buf, plain_text, &plain_text_length, (uint8_t *)&unsealed_data, &unsealed_data_length);
+    if(ret == SGX_SUCCESS)
+    {
+        g_secret = unsealed_data;
+        sgx_thread_mutex_unlock(&g_mutex);
+        free_allocated_memory(temp_sealed_buf);
+        return 0;
+    }
+    else
+    {
+        sgx_thread_mutex_unlock(&g_mutex);
+        print("Failed to reinitialize the enclave.\n");
+        free_allocated_memory(temp_sealed_buf);
+        return -1;
+    }
+}
+
+int increase_and_seal_data(size_t tid, struct sealed_buf_t* sealed_buf)
+{
+    uint32_t sealed_len = sizeof(sgx_sealed_data_t) + sizeof(g_secret);
+    // Check the sealed_buf length and check the outside pointers deeply
+    if(sealed_buf->sealed_buf_ptr[MOD2(sealed_buf->index)] == NULL ||
+        sealed_buf->sealed_buf_ptr[MOD2(sealed_buf->index + 1)] == NULL ||
+        !sgx_is_outside_enclave(sealed_buf->sealed_buf_ptr[MOD2(sealed_buf->index)], sealed_len) ||
+        !sgx_is_outside_enclave(sealed_buf->sealed_buf_ptr[MOD2(sealed_buf->index + 1)], sealed_len))
+    {
+        print("Incorrect input parameter(s).\n");
+        return -1;
+    }
+
+    char string_buf[BUFSIZ] = {'\0'};
+    uint32_t temp_secret = 0;
+    uint8_t *plain_text = NULL;
+    uint32_t plain_text_length = 0;
+    uint8_t *temp_sealed_buf = (uint8_t *)malloc(sealed_len);
+    if(temp_sealed_buf == NULL)
+    {
+        print("Out of memory.\n");
+        return -1;
+    }
+    memset(temp_sealed_buf, 0, sealed_len);
+
+    sgx_thread_mutex_lock(&g_mutex);
+
+    // Increase and seal the secret data
+    temp_secret = ++g_secret;
+    sgx_status_t ret = sgx_seal_data(plain_text_length, plain_text, sizeof(g_secret), (uint8_t *)&g_secret, sealed_len, (sgx_sealed_data_t *)temp_sealed_buf);
+    if(ret != SGX_SUCCESS)
+    {
+        sgx_thread_mutex_unlock(&g_mutex);
+        print("Failed to seal data\n");
+        free_allocated_memory(temp_sealed_buf);
+        return -1;
+    }
+    // Backup the sealed data to outside buffer
+    memcpy(sealed_buf->sealed_buf_ptr[MOD2(sealed_buf->index + 1)], temp_sealed_buf, sealed_len);
+    sealed_buf->index++;
+
+    sgx_thread_mutex_unlock(&g_mutex);
+    free_allocated_memory(temp_sealed_buf);
+
+    // Ocall to print the unsealed secret data outside.
+    // In theory, the secret data(s) SHOULD NOT be transferred outside the enclave as clear text(s).
+    // So please DO NOT print any secret outside. Here printing the secret data to outside is only for demo.
+    snprintf(string_buf, BUFSIZ, "Thread %#x>: %d\n", (unsigned int)tid, temp_secret);
+    print(string_buf);
+    return 0;
+}
