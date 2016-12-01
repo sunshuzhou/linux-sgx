@@ -1,8 +1,8 @@
 --------------------------
-Purpose of PowerTransition
+Purpose of Cryptographic operations
 --------------------------
-The project demonstrates one method about power transition handling for Intel(R) 
-Software Guard Extensions projects development.
+The project demonstrates how to perform arbitary cryptographic operations
+inside an enclave for Intel(R) Software Guard Extensions projects development.
 
 ------------------------------------
 How to Build/Execute the Sample Code
