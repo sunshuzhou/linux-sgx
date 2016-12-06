@@ -37,10 +37,15 @@
 #include "sgx_trts.h"
 #include "sgx_thread.h"
 #include "sgx_tseal.h"
-
 #include "Enclave_t.h"
 
+#include "sgx_key.h"
+#include "sgx_utils.h"
+//#include "se_memcpy.h"
+#include "sgx_trts.h"
+
 #include "tomcrypt_macros.h"
+
 
 void printf(const char *fmt, ...)
 {
@@ -362,6 +367,55 @@ void get_sha256(unsigned char *ciphertext, size_t len) {
     } else {
         memcpy(ciphertext, "false", strlen("false") + 1);
     }
+/*
+    sgx_report_t report;
+    memset(&report, 0, sizeof(sgx_report_t));
+    int err = sgx_create_report(NULL, NULL, &report);
+    if (err != SGX_SUCCESS)
+       printf("ERROR\n");
+
+    sgx_key_request_t key_request;
+    sgx_key_128bit_t key;
+    memset(&key, 0, sizeof(sgx_key_128bit_t));
+    memset(&key_request, 0, sizeof(sgx_key_request_t));
+    key_request.key_name = SGX_KEYSELECT_REPORT;
+    memcpy(&key_request.key_id, &(report.key_id), sizeof(report.key_id));
+    sgx_status_t ret = sgx_get_key(&key_request, &key);
+    printf("%d %d\n", ret, SGX_SUCCESS);
+    printf("%d\n", key);
+    printf("%d\n", key_request);
+    printf("%d %d %d %d %d %d\n", SGX_ERROR_OUT_OF_MEMORY, SGX_ERROR_INVALID_ATTRIBUTE, SGX_ERROR_INVALID_CPUSVN, SGX_ERROR_INVALID_ISVSVN, SGX_ERROR_INVALID_KEYNAME, SGX_ERROR_UNEXPECTED);
+   if (ret != SGX_SUCCESS)
+    printf("Unsuccessfull\n");
+    
+        unsigned char *i = key;
+        while(*i){
+		printf("%x", *i);
+                *i++;
+	}
+        printf("\"\n");
+*/
+unsigned int SIZE = 10;
+uintptr_t r[SIZE];
+//uintptr_t *i =  &r[0];
+//unsigned char *rand;
+//size_t length_in_bytes = 8;
+//rand = r;
+//printf("XX = %d %x\n", r, r);
+//printf("XX = %d %x\n", *i, *i);
+int err = sgx_read_rand((unsigned char *)&r, sizeof(r));
+   if (err != SGX_SUCCESS)
+       printf("ERROR\n");
+//printf("R = 0x%08x %d %d\n", r, r, sizeof(uintptr_t));
+//uintptr_t *i =  &r;
+//printf("XX = 0x%08x %d\n", r[0], r[0]);
+//printf("XX = 0x%08x %d\n", r[1], r[1]);
+//printf("XX = %d %x\n", *i, *i);
+int i;
+for(i = 0; i < SIZE; i++)
+   printf("%08x \n", r[i]);
+printf("\n");
+
 
 //    printf("Inside  the enclave - saved  secret: \"%s\"\n", savedSecret);
 //    printf("Inside  the enclave - output secret: \"%s\"\n", ciphertext);
