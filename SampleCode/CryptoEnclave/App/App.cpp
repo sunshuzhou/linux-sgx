@@ -39,7 +39,7 @@
 #include <fstream>
 #include <thread>
 #include <iostream>
-
+#include "sgx_key.h"
 #include "Enclave_u.h"
 #include "sgx_urts.h"
 #include "sgx_tseal.h"
@@ -324,7 +324,6 @@ int initialize_enclave(void)
     printf("DEBUG   = %d\n", SGX_DEBUG_FLAG);
     printf("TOKEN   = %s\n", token);
     printf("UPDATE  = %d\n", updated);
-    printf("GID     = %llx\n", global_eid);
 
     ret = sgx_create_enclave(ENCLAVE_NAME, SGX_DEBUG_FLAG, &token, &updated, &global_eid, NULL);
     if (ret != SGX_SUCCESS) {
@@ -414,6 +413,31 @@ int main(int argc, char* argv[])
     printf("\n\n");
     char plaintext[MAX_BUF_LEN] = "hello world";
     printf("Outside the enclave - input  plaintext:  \"%s\"\n", plaintext);
+/*
+    size_t x;
+    FILE *in;
+    in = fopen("file.txt", "rb");
+    if (in == NULL){
+       return -1;
+    }
+    do {
+       x = fread(buf, 1, sizeof(buf), in);
+        //      printf("%s", buf);
+       //err = hmac_process(&hmac, buf, (unsigned long)x);
+      // if (err != 0) {
+        //                fclose(in);
+          //              return err;
+            //    }
+       memset(buf, '\0', sizeof(buf));
+    } while (x == sizeof(buf));
+
+    if (fclose(in) != 0) {
+       return -1;
+    }
+
+*/
+
+
     gen_sha256(global_eid, plaintext, strlen(plaintext)+1);
     memset(plaintext, 0, MAX_BUF_LEN);
     unsigned char ciphertext[MAX_BUF_LEN] = {'\0'};
@@ -427,6 +451,13 @@ int main(int argc, char* argv[])
     }
     printf("\"\n");
     printf("\n\n\n\n\n");
+    memset(plaintext, 0, MAX_BUF_LEN);
+    gen_hmac_sha256(global_eid, plaintext, strlen(plaintext)+1);
+
+//   const sgx_key_request_t *key_request;
+//   sgx_key_128bit_t *key;
+//   sgx_status_t ret1 = sgx_get_key(key_request, key);
+
 
 
 /*
