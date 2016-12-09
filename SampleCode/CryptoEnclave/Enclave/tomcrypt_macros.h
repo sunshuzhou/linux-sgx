@@ -1,6 +1,66 @@
 
 /* ---- HELPER MACROS ---- */
+struct sha256_state {
+    unsigned long length;
+    unsigned int state[8], curlen;
+    unsigned char buf[64];
+};
 
+typedef union Hash_state {
+    char dummy[1];
+    struct sha256_state sha256;
+    void *data;
+} hash_state;
+typedef struct Hmac_state {
+     hash_state     md;
+     int            hash;
+     hash_state     hashstate;
+     unsigned char  *key;
+} hmac_state;
+
+
+int sha256_init(hash_state * md);
+int sha256_process(hash_state * md, unsigned char *in, unsigned long inlen);
+int sha256_done(hash_state * md, unsigned char *hash);
+int sha256_test(void);
+
+int hmac_init(hmac_state *hmac, int hash, unsigned char *key, unsigned long keylen);
+int hmac_process(hmac_state *hmac, unsigned char *in, unsigned long inlen);
+int hmac_done(hmac_state *hmac, unsigned char *out, unsigned long *outlen);
+int hash_memory(int hash, unsigned char *in, unsigned long inlen, unsigned char *out, unsigned long *outlen);
+/*
+struct sha256_state {
+    unsigned long length;
+    unsigned int state[8], curlen;
+    unsigned char buf[64];
+};
+
+typedef union Hash_state {
+    char dummy[1];
+    struct sha256_state sha256;
+    void *data;
+} hash_state;
+
+typedef struct Hmac_state {
+     hash_state     md;
+     int            hash;
+     hash_state     hashstate;
+     unsigned char  *key;
+} hmac_state;
+
+int sha256_init(hash_state * md);
+int sha256_process(hash_state * md, const unsigned char *in, unsigned long inlen);
+int sha256_done(hash_state * md, unsigned char *hash);
+int sha256_test(void);
+
+int hmac_init(hmac_state *hmac, int hash, const unsigned char *key, unsigned long keylen);
+int hmac_process(hmac_state *hmac, const unsigned char *in, unsigned long inlen);
+int hmac_done(hmac_state *hmac, unsigned char *out, unsigned long *outlen);
+int hash_memory(int hash, const unsigned char *in, unsigned long inlen, unsigned char *out, unsigned long *outlen);
+*/
+#define MAXBLOCKSIZE  128
+#define XMALLOC  malloc
+#define XFREE    free
 #define XMEMCPY memcpy
 #define Ch(x,y,z)       (z ^ (x & (y ^ z)))
 #define Maj(x,y,z)      (((x | y) & z) | (x & y))
@@ -10,18 +70,6 @@
 #define Sigma1(x)       (S(x, 6) ^ S(x, 11) ^ S(x, 25))
 #define Gamma0(x)       (S(x, 7) ^ S(x, 18) ^ R(x, 3))
 #define Gamma1(x)       (S(x, 17) ^ S(x, 19) ^ R(x, 10))
-
-struct sha256_statee {
-    unsigned long length;
-    unsigned int state[8], curlen;
-    unsigned char buf[64];
-};
-
-typedef union Hash_statee {
-    char dummy[1];
-    struct sha256_statee sha256;
-	void *data;
-} hash_statee;
 
 
 
