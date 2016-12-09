@@ -41,6 +41,8 @@ else ifeq ($(findstring -m32, $(CXXFLAGS)), -m32)
 	SGX_ARCH := x86
 endif
 
+CRYPT_COMMON_CFLAGS := -Wno-write-strings
+
 ifeq ($(SGX_ARCH), x86)
 	SGX_COMMON_CFLAGS := -m32
 	SGX_LIBRARY_PATH := $(SGX_SDK)/lib
@@ -178,15 +180,15 @@ $(Gen_Untrusted_Source): $(SGX_EDGER8R) Enclave/Enclave.edl
 	@echo "GEN  =>  $@"
 
 $(Gen_Untrusted_Object): $(Gen_Untrusted_Source)
-	@$(CC) $(SGX_COMMON_CFLAGS) $(App_Compile_CFlags) -c $< -o $@
+	@$(CC) $(SGX_COMMON_CFLAGS) $(App_Compile_CFlags) $(CRYPT_COMMON_CFLAGS) -c $< -o $@
 	@echo "CC   <=  $<"
 
 App/%.o: App/%.cpp
-	@$(CXX) $(SGX_COMMON_CFLAGS) $(App_Compile_CXXFlags) -c $< -o $@
+	@$(CXX) $(SGX_COMMON_CFLAGS) $(App_Compile_CXXFlags) $(CRYPT_COMMON_CFLAGS) -c $< -o $@
 	@echo "CXX  <=  $<"
 
 $(App_Name): $(App_Objects)
-	@$(CXX) $(SGX_COMMON_CFLAGS) $^ -o $@ $(App_Link_Flags)
+	@$(CXX) $(SGX_COMMON_CFLAGS) $(CRYPT_COMMON_CFLAGS) $^ -o $@ $(App_Link_Flags)
 	@echo "LINK =>  $@"
 
 
@@ -196,15 +198,15 @@ $(Gen_Trusted_Source): $(SGX_EDGER8R) Enclave/Enclave.edl
 	@cd Enclave && $(SGX_EDGER8R) --trusted Enclave.edl --search-path $(SGX_SDK)/include
 	@echo "GEN  =>  $@"
 $(Gen_Trusted_Object): $(Gen_Trusted_Source)
-	@$(CC) $(SGX_COMMON_CFLAGS) $(Enclave_Compile_CFlags) -c $< -o $@
+	@$(CC) $(SGX_COMMON_CFLAGS) $(Enclave_Compile_CFlags) $(CRYPT_COMMON_CFLAGS) -c $< -o $@
 	@echo "CC   <=  $<"
 
-Enclave/%.o: Enclave/%.cpp
-	@$(CXX) $(SGX_COMMON_CFLAGS) $(Enclave_Compile_CXXFlags) -c $< -o $@
+Enclave/%.o: Enclave/%.cpp 
+	@$(CXX) $(SGX_COMMON_CFLAGS) $(Enclave_Compile_CXXFlags) $(CRYPT_COMMON_CFLAGS) -c $< -o $@
 	@echo "CXX  <=  $<"
 
 $(Enclave_Name): $(Enclave_Objects)
-	@$(CXX) $(SGX_COMMON_CFLAGS) $(Enclave_Objects) -o $@ $(Enclave_Link_Flags)
+	@$(CXX) $(SGX_COMMON_CFLAGS) $(Enclave_Objects) $(CRYPT_COMMON_CFLAGS) -o $@ $(Enclave_Link_Flags)
 	@echo "LINK =>  $@"
 
 $(Signed_Enclave_Name): $(Enclave_Name)
