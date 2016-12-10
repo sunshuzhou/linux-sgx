@@ -263,7 +263,7 @@ void release_source()
 # include <unistd.h>
 # include <pwd.h>
 # define MAX_PATH FILENAME_MAX
-# define MAX_BUF_LEN 100
+# define MAX_BUF_LEN 512
 #include "sgx_urts.h"
 //#include "App.h"
 #include "Enclave_u.h"
@@ -306,6 +306,7 @@ int initialize_enclave(void)
     }
     printf("TOKEN PATH = %s\n", token_path);
     FILE *fp = fopen(token_path, "rb");
+    printf("#################%p\n", fp);
     if (fp == NULL && (fp = fopen(token_path, "wb")) == NULL) {
         printf("Warning: Failed to create/open the launch token file \"%s\".\n", token_path);
     }
@@ -359,6 +360,11 @@ void ocall_print_string(const char *str)
 
 }
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 int main(int argc, char* argv[])
 {
@@ -392,7 +398,7 @@ int main(int argc, char* argv[])
 
 
 
-
+    printf("hello1\n\n");
     sgx_status_t ret = SGX_SUCCESS;
     int retval = 0;
     int updated = 0;
@@ -410,34 +416,97 @@ int main(int argc, char* argv[])
     }
 */
 
-    printf("\n\n");
-    char plaintext[MAX_BUF_LEN] = "hello world";
-    printf("Outside the enclave - input  plaintext:  \"%s\"\n", plaintext);
-/*
+    printf("hello2\n\n");
+//    char plaintext[MAX_BUF_LEN] = {'\0'};
+//    printf("Outside the enclave - input  plaintext:  \"%s\"\n", plaintext);
+
+    char buf[4097] = {'\0'};
     size_t x;
-    FILE *in;
-    in = fopen("file.txt", "rb");
-    if (in == NULL){
+    //FILE *fid = fopen("fox.txt", "r");
+  //  FILE *fid = fopen("gutenberg/out.txt", "r");
+    int fid; 
+    fid = open("gutenberg/4300-0.txt", O_RDONLY|O_LARGEFILE);
+
+    if (fid == -1){
        return -1;
     }
+	int i;
+
+//lseek(fid, 0L, SEEK_END);
+unsigned long int size = lseek(fid, 0L, SEEK_END);
+lseek(fid,0,SEEK_SET);
+//char plaintext[size+1];
+char *plaintext = (char *) malloc(sizeof(char) * (size+1));
+memset(plaintext, '\0', sizeof(plaintext));
+
+
+/*
+fseek(fid, 0L, SEEK_END);
+unsigned long int size = ftell(fid);
+printf("%lu\n", size);
+rewind(fid);
+char plaintext[size+1];
+memset(plaintext, '\0', sizeof(plaintext));
+i = 0;
+*/
+off_t chunk = 0;
+size_t readlen;
+printf("XXXXXXXXXXXXXX\n");
+//while ( chunk < size )
+do
+{
+// 1048576
+   readlen=read(fid,buf,4096);
+//printf("%zu %d\n", strlen(buf), readlen);
+   //readnow=read(fid,((char *)plaintext)+chunk,4096);
+
+ //  printf("%s", buf);
+   if (readlen < 0 )
+   {
+      close (fid);
+      return -1;
+   }
+enclave_copy(global_eid, buf, strlen(buf)+1);
+memset(buf,'\0',sizeof(buf));
+//   enclave_copy(global_eid, buf, strlen(buff)+1);
+//   chunk=chunk+readnow;
+} while (readlen == sizeof(buf)-1);
+
+if (close(fid)) 
+{
+   return -1;
+}
+
+
+/*
     do {
-       x = fread(buf, 1, sizeof(buf), in);
-        //      printf("%s", buf);
+	printf("%d\n", i);
+        x = fread(((unsigned char *)plaintext) + chunk, 1, 1048576, fid);
+	i++;
+	printf("%d\n", i);
+       //       printf("%s", buf);
        //err = hmac_process(&hmac, buf, (unsigned long)x);
       // if (err != 0) {
         //                fclose(in);
           //              return err;
             //    }
-       memset(buf, '\0', sizeof(buf));
+       
+//       memset(buf, '\0', sizeof(buf));
+ 	chunk = chunk + x;
     } while (x == sizeof(buf));
 
-    if (fclose(in) != 0) {
+    if (fclose(fid) != 0) {
        return -1;
     }
-
 */
 
+//for(i = 0; i < size+1; i++)
+//printf("%s", plaintext);
+printf("%d %d %d %d\n", strlen((char*)plaintext), sizeof(plaintext), chunk, sizeof(buf));
 
+//    enclave_copy(global_eid, plaintext, strlen(plaintext)+1);
+
+/*
     gen_sha256(global_eid, plaintext, strlen(plaintext)+1);
     memset(plaintext, 0, MAX_BUF_LEN);
     unsigned char ciphertext[MAX_BUF_LEN] = {'\0'};
@@ -451,8 +520,9 @@ int main(int argc, char* argv[])
     }
     printf("\"\n");
     printf("\n\n\n\n\n");
-    memset(plaintext, 0, MAX_BUF_LEN);
-    gen_hmac_sha256(global_eid, plaintext, strlen(plaintext)+1);
+*/
+//    memset(plaintext, 0, MAX_BUF_LEN);
+//    gen_hmac_sha256(global_eid, plaintext, strlen(plaintext)+1);
 
 //   const sgx_key_request_t *key_request;
 //   sgx_key_128bit_t *key;
