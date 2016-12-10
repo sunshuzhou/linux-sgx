@@ -652,7 +652,7 @@ void enclave_copy(unsigned char *plaintext, size_t len)
 if(!off){
 	sha256_init(&state);
 }
-//	sha256_process(&state, plaintext, strlen((char *) plaintext));
+	sha256_process(&state, plaintext, strlen((char *) plaintext));
 
 //        printf("%s\n", plaintext);
         //printf("%d %d\n", strlen(ptext), len);
