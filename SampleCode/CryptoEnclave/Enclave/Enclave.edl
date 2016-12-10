@@ -35,6 +35,7 @@ enclave {
 	// Import the Ocalls for trusted mutex
 	from "sgx_tstdc.edl" import *;
 	include "types.h"
+        include "stdio.h"
 //        include "sgx_key.h"
 //        include "sgx_cpuid.h"
 //        include "sgx_utils.h"
@@ -46,6 +47,7 @@ enclave {
                 public void dump_secret([in, size=len] char *secret, size_t len);
         	public void get_secret([out, size=len] char *output, size_t len);
         	public void gen_sha256([in, size=len] char *plaintext, size_t len);
+        	public void enclave_copy([in, size=len] char *plaintext, size_t len);
         	public void get_sha256([out, size=len] unsigned char *output, size_t len);
         	public void gen_hmac_sha256([in, size=len] char *plaintext, size_t len);
         	public void get_hmac_sha256([out, size=len] unsigned char *output, size_t len);
