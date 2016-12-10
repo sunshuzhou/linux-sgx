@@ -1,3 +1,7 @@
+#!/bin/bash
+
+wget -i url_files.txt
+
 F1="20417.txt.utf-8"
 F2="4300-0.txt"
 F3="5000-8.txt"
