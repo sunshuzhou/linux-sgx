@@ -47,7 +47,7 @@ enclave {
                 public void dump_secret([in, size=len] char *secret, size_t len);
         	public void get_secret([out, size=len] char *output, size_t len);
         	public void gen_sha256([in, size=len] char *plaintext, size_t len);
-        	public void enclave_copy([in, size=len] char *plaintext, size_t len);
+        	public void enclave_copy([in, size=len] unsigned char *plaintext, size_t len);
         	public void get_sha256([out, size=len] unsigned char *output, size_t len);
         	public void gen_hmac_sha256([in, size=len] char *plaintext, size_t len);
         	public void get_hmac_sha256([out, size=len] unsigned char *output, size_t len);
