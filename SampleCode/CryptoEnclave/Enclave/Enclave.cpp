@@ -640,25 +640,48 @@ LBL_ERR:
     return err;
 }
 
-char *ptext = NULL;
+unsigned char *ptext = NULL;
+int n = 0;
+static size_t off = 0;
+#define BUFFERSIZE 4096
+hash_state state;
 
-void enclave_copy(char *plaintext, size_t len)
+void enclave_copy(unsigned char *plaintext, size_t len)
 {
-//        printf("%s\n", plaintext);
+	int err;   
+if(!off){
+	sha256_init(&state);
+}
+//	sha256_process(&state, plaintext, strlen((char *) plaintext));
 
-        printf("%d %d\n", strlen(plaintext), len);
+//        printf("%s\n", plaintext);
+        //printf("%d %d\n", strlen(ptext), len);
 //	if(ptext == NULL)
 //		printf("EMPTY\n");
 		
 //	else{
 //		printf("NON EMPTY\n");
-	
-
-	ptext = (char *) malloc(sizeof(char) * len);
-	memset(ptext, '\0', len);
-        printf("%d\n", sizeof(ptext));
-	strncpy(ptext, plaintext, len);
-        ocall_print_string(ptext);
+//printf("XXX\n");	
+//	n++;
+//	off =+ len -1;
+//printf("XXX%d %d %d\n", n, off, off + len - 1);	
+//	if (n>1)
+//	printf("%d\n",strlen(ptext));
+	ptext = (unsigned char *) realloc(ptext,  ((off+(len)) * sizeof(char)));
+//	memset(ptext, '\0', len);
+//        printf("PTEXT %d %d\n", sizeof(ptext), sizeof(char));
+  //   printf("PTEXT %p %x %d\n", ptext, ptext+off, off);
+	memcpy((unsigned char *)ptext+off, plaintext, len-1);
+	off = off + len - 1;
+	memset((unsigned char *)ptext+off,'\0',1);
+//        printf("%d %d %d\n", strlen(plaintext), strlen(ptext), off);
+ //       ocall_print_string(ptext+off);
+//	off = off + len - 1;
+if(len < BUFFERSIZE + 1)
+{
+//	ocall_print_string((char*)ptext);
+	printf("ptext len %d %d %d %d\n", strlen((char*) ptext), off, strlen((char*) plaintext), len);
+}
 
 /*
 	unsigned long long i = 0;
@@ -681,7 +704,7 @@ void enclave_copy(char *plaintext, size_t len)
 //	}
 		
 //        printf("%s\n", ptext);
-//        printf("%d\n", strlen(ptext));
+     //   printf("%d\n", strlen(ptext));
 	
 
 
@@ -709,7 +732,6 @@ void gen_sha256(char *plaintext, size_t len)
 	hash_state state;
 	sha256_init(&state);
 	sha256_process(&state, savedPlaintext, strlen((char *)savedPlaintext));
-	//sha256_processs(&state, hello, strlen((char *)hello));
 	err = sha256_done(&state, savedCiphertext);
 //	int i;
         printf("Inside  the enclave - output ciphertext: \"");
