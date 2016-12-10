@@ -640,6 +640,54 @@ LBL_ERR:
     return err;
 }
 
+char *ptext = NULL;
+
+void enclave_copy(char *plaintext, size_t len)
+{
+//        printf("%s\n", plaintext);
+
+        printf("%d %d\n", strlen(plaintext), len);
+//	if(ptext == NULL)
+//		printf("EMPTY\n");
+		
+//	else{
+//		printf("NON EMPTY\n");
+	
+
+	ptext = (char *) malloc(sizeof(char) * len);
+	memset(ptext, '\0', len);
+        printf("%d\n", sizeof(ptext));
+	strncpy(ptext, plaintext, len);
+        ocall_print_string(ptext);
+
+/*
+	unsigned long long i = 0;
+	char *j = ptext;
+	while(i < len)
+	{
+		printf("\n\n\n%x\n\n\n\n",j);
+		*j =+ 8192;
+		printf("\n\n\n%x\n\n\n\n",j);
+		printf("%s\n", *j);
+		*j =+ 8192;
+	}
+*/
+//	printf("%x %x\n", ptext, ptext+i);
+//	printf("%d\n", i+8192);
+
+//	while()
+//	{
+//		*j + 80
+//	}
+		
+//        printf("%s\n", ptext);
+//        printf("%d\n", strlen(ptext));
+	
+
+
+
+
+}
 void gen_sha256(char *plaintext, size_t len)
 {
    if(len > strlen(plaintext))
