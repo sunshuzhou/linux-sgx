@@ -365,7 +365,7 @@ void ocall_print_string(const char *str)
 #include <fcntl.h>
 #include <sys/types.h>
 #include <unistd.h>
-
+#define BUFFERSIZE 4096
 int main(int argc, char* argv[])
 {
     (void)argc;
@@ -420,10 +420,11 @@ int main(int argc, char* argv[])
 //    char plaintext[MAX_BUF_LEN] = {'\0'};
 //    printf("Outside the enclave - input  plaintext:  \"%s\"\n", plaintext);
 
-    char buf[4097] = {'\0'};
+    unsigned char buf[BUFFERSIZE+1] = {'\0'};
     size_t x;
     //FILE *fid = fopen("fox.txt", "r");
   //  FILE *fid = fopen("gutenberg/out.txt", "r");
+//4300-0.txt
     int fid; 
     fid = open("gutenberg/4300-0.txt", O_RDONLY|O_LARGEFILE);
 
@@ -453,6 +454,7 @@ off_t chunk = 0;
 size_t readlen;
 printf("XXXXXXXXXXXXXX\n");
 //while ( chunk < size )
+int j = 0;
 do
 {
 // 1048576
@@ -466,8 +468,11 @@ do
       close (fid);
       return -1;
    }
-enclave_copy(global_eid, buf, strlen(buf)+1);
+enclave_copy(global_eid, buf, strlen((char *)buf)+1);
 memset(buf,'\0',sizeof(buf));
+j++;
+//if (j == 2)
+//break;
 //   enclave_copy(global_eid, buf, strlen(buff)+1);
 //   chunk=chunk+readnow;
 } while (readlen == sizeof(buf)-1);
@@ -502,8 +507,8 @@ if (close(fid))
 
 //for(i = 0; i < size+1; i++)
 //printf("%s", plaintext);
-printf("%d %d %d %d\n", strlen((char*)plaintext), sizeof(plaintext), chunk, sizeof(buf));
-
+printf("%d %d %d %d %d\n", strlen((char*)plaintext), sizeof(plaintext), chunk, sizeof(buf), readlen);
+printf("%d\n", size);
 //    enclave_copy(global_eid, plaintext, strlen(plaintext)+1);
 
 /*
