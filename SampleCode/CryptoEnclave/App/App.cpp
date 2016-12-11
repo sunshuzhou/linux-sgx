@@ -55,7 +55,8 @@
 #define ENCLAVE_NAME "libenclave.signed.so"
 #define TOKEN_NAME   "Enclave.token"
 #define BUFFERSIZE   4096
-#define SHA256_LEN   32
+#define SHA256_LEN        32
+#define HMAC_SHA256_LEN   32
 // Global data
 sgx_enclave_id_t global_eid = 0;
 sgx_launch_token_t token = {0};
@@ -123,14 +124,13 @@ int main(int argc, char* argv[])
 
    unsigned char sha256_out[SHA256_LEN] = {'\0'};
    get_sha256(global_eid, sha256_out, SHA256_LEN);
-   printf("    App.cpp: Created sha256 hash: \"");
+   printf("    App.cpp: Created      sha256 hash: ");
    int i;
    for(i = 0; i < 32; i++)
    {
          printf("%02x", sha256_out[i]);
    }
-   printf("\"\n");
-
+   printf("\n");
 
    fid = open(argv[1], O_RDONLY|O_LARGEFILE);
 
@@ -145,6 +145,7 @@ int main(int argc, char* argv[])
       gen_hmac_sha256(global_eid, buf, len + 1);
       memset(buf,'\0',sizeof(buf));
    }
+   while (len == sizeof(buf) - 1);
 
    memset(buf,'\0',sizeof(buf));
    if (close(fid)) 
@@ -152,6 +153,14 @@ int main(int argc, char* argv[])
       return (-1);
    }
 
+   unsigned char hmac_sha256_out[HMAC_SHA256_LEN] = {'\0'};
+   get_hmac_sha256(global_eid, hmac_sha256_out, HMAC_SHA256_LEN);
+   printf("    App.cpp: Created hmac sha256 hash: ");
+   for(i = 0; i < 32; i++)
+   {
+         printf("%02x", hmac_sha256_out[i]);
+   }
+   printf("\n");
 
 /*
     do {
