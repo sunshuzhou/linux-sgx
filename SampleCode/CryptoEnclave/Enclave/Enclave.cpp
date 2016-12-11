@@ -41,7 +41,6 @@
 
 #include "sgx_key.h"
 #include "sgx_utils.h"
-//#include "se_memcpy.h"
 #include "sgx_trts.h"
 
 #include "tomcrypt_macros.h"
@@ -54,7 +53,7 @@ void printf(const char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(buf, BUFSIZ, fmt, ap);
     va_end(ap);
-    ocall_print_string(buf);
+    print(buf);
 }
 
 void zeromem(volatile void *out, size_t outlen)
@@ -636,103 +635,45 @@ LBL_ERR:
     return err;
 }
 
-//unsigned char ptext;
-//unsigned char *ptext = NULL;
-static int init = 0;
-static size_t off = 0;
 #define BUFFERSIZE 4096
+static int init = 0;
+unsigned char sha256_out[32] = {'\0'};
 //unsigned char ptext[BUFFERSIZE] = {'\0'};
 hash_state state;
 
-void enclave_copy(unsigned char *plaintext, size_t len)
+void gen_sha256(unsigned char *plaintext, size_t len)
 {
-	int err;   
-if(!init)
-{
-	init = 1;
-	printf("Don't comment me!\n");
-	sha256_init(&state);
-}	
-//	unsigned char ptext[BUFFERSIZE] = {'\0'};
-//	memcpy(ptext,plaintext,len-1);
-	sha256_process(&state, plaintext, len-1);
-	
+   int err;   
+   if(!init)
+   {
+      init = 1;
+      printf("Don't comment me!\n");
+      sha256_init(&state);
+   }	
 
-//        printf("%s\n", plaintext);
-        //printf("%d %d\n", strlen(ptext), len);
-//	if(ptext == NULL)
-//		printf("EMPTY\n");
-		
-//	else{
-//		printf("NON EMPTY\n");
-//printf("XXX\n");	
-//	n++;
-//	off =+ len -1;
-//printf("XXX%d %d %d\n", n, off, off + len - 1);	
-//	if (n>1)
-//	printf("%d\n",strlen(ptext));
-/*
-	ptext = (unsigned char *) realloc(ptext,  ((off+(len)) * sizeof(char)));
-	memcpy((unsigned char *)ptext+off, plaintext, len-1);
-	off = off + len - 1;
-	memset((unsigned char *)ptext+off,'\0',1);
-*/
-//        printf("%d %d %d %d %c %c\n", strlen((char*)plaintext), strlen((char *)ptext), off, len, plaintext[len-3],  plaintext[len-2]);
- //       ocall_print_string(ptext+off);
-//	off = off + len - 1;
-if(len < BUFFERSIZE + 1)
-{
-//	ocall_print_string((char*)ptext);
+   sha256_process(&state, plaintext, len-1);
 
-//	printf("ptext len %d %d %d %d\n", strlen((char*) ptext), off, strlen((char*) plaintext), len);
-        unsigned char out[32] = {'\0'};
-//        sha256_process(&state, ptext, strlen(ptext));
-        err = sha256_done(&state, out);
-        if(err == 0){
-                printf("SUCCESS!\n");
+   if(len < BUFFERSIZE + 1)
+   {
+      err = sha256_done(&state, sha256_out);
+      if(err == 0)
+      {
+         printf("Enclave.cpp: Created sha256 hash: ");
 
-        int i;
-        for(i = 0; i < 32; i++){
-                printf("%02x", out[i]);
-        }
-        printf("\n");
-
-
-        }
-        else{
-                printf("ERROR!");
-        }
-
+         int i;
+         for(i = 0; i < 32; i++)
+         {
+            printf("%02x", sha256_out[i]);
+         }
+         printf("\n");
+      }
+      else
+      {
+         printf("Enclave.cpp: Error creating sha256 hash!\n");
+      }
+   }
 }
-
 /*
-	unsigned long long i = 0;
-	char *j = ptext;
-	while(i < len)
-	{
-		printf("\n\n\n%x\n\n\n\n",j);
-		*j =+ 8192;
-		printf("\n\n\n%x\n\n\n\n",j);
-		printf("%s\n", *j);
-		*j =+ 8192;
-	}
-*/
-//	printf("%x %x\n", ptext, ptext+i);
-//	printf("%d\n", i+8192);
-
-//	while()
-//	{
-//		*j + 80
-//	}
-		
-//        printf("%s\n", ptext);
-     //   printf("%d\n", strlen(ptext));
-	
-
-
-
-
-}
 void gen_sha256(char *plaintext, size_t len)
 {
    if(len > strlen(plaintext))
@@ -764,7 +705,7 @@ void gen_sha256(char *plaintext, size_t len)
 	}
         printf("\"\n");
 }
-
+*/
 void get_sha256(unsigned char *ciphertext, size_t len) {
     if (len > strlen((char *)savedCiphertext))
     {
