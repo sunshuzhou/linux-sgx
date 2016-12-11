@@ -131,7 +131,7 @@ int main(int argc, char* argv[])
    }
    printf("\"\n");
 
-/*
+
    fid = open(argv[1], O_RDONLY|O_LARGEFILE);
 
    do
@@ -142,7 +142,7 @@ int main(int argc, char* argv[])
          close (fid);
          return (-1);
       }
-      gen_sha256(global_eid, buf, len + 1);
+      gen_hmac_sha256(global_eid, buf, len + 1);
       memset(buf,'\0',sizeof(buf));
    }
 
@@ -151,7 +151,7 @@ int main(int argc, char* argv[])
    {
       return (-1);
    }
-*/
+
 
 /*
     do {
