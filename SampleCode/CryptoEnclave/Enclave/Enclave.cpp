@@ -638,9 +638,8 @@ LBL_ERR:
 #define BUFFERSIZE 4096
 #define SHA256_LEN 32
 int init = 0;
-unsigned char sha256_out[SHA256_LEN] = {'\0'};
-//unsigned char ptext[BUFFERSIZE] = {'\0'};
 hash_state state;
+unsigned char sha256_out[SHA256_LEN] = {'\0'};
 
 void gen_sha256(unsigned char *plaintext, size_t len)
 {
@@ -648,25 +647,30 @@ void gen_sha256(unsigned char *plaintext, size_t len)
    if(!init)
    {
       init = 1;
-      printf("Don't comment me!\n");
+//      printf("Don't comment me!\n");
       sha256_init(&state);
    }	
 
-   sha256_process(&state, plaintext, len-1);
+   err = sha256_process(&state, plaintext, len-1);
+   if(err != 0)
+   {
+      printf("Enclave.cpp: Error process hmac with sha256 hash!\n");
+   }
+
 
    if(len < BUFFERSIZE + 1)
    {
+      init = 0;
       err = sha256_done(&state, sha256_out);
       if(err == 0)
       {
-         printf("Enclave.cpp: Created sha256 hash: \"");
-
+         printf("Enclave.cpp: Created      sha256 hash: ");
          int i;
          for(i = 0; i < 32; i++)
          {
             printf("%02x", sha256_out[i]);
          }
-         printf("\"\n");
+         printf("\n");
       }
       else
       {
@@ -674,40 +678,6 @@ void gen_sha256(unsigned char *plaintext, size_t len)
       }
    }
 }
-/*
-void gen_sha256(char *plaintext, size_t len)
-{
-   if(len > strlen(plaintext))
-   {
-       memcpy(savedPlaintext, plaintext, strlen(plaintext) + 1);
-   }
-   else
-   {
-      memcpy(plaintext, "false", strlen("false") + 1);
-   }
-   printf("Inside  the enclave - input  plaintext:  \"%s\"\n", savedPlaintext);
-   //printf("Inside  the enclave - input plaintext: \"%s\" %d \n", savedSecret, strlen((char*)savedSecret));
-//   unsigned char out[100] = {'\0'};
-   unsigned char hello[12];
-//   memcpy(hello, "hello world", 12);
-//   printf("Inside  the enclave - input plaintext: \"%s\" %d \n", hello, strlen((char*)hello));
-//   hash(savedSecret, strlen(savedSecret), out);
-	int err;   
-	hash_state state;
-	sha256_init(&state);
-	sha256_process(&state, savedPlaintext, strlen((char *)savedPlaintext));
-	err = sha256_done(&state, savedCiphertext);
-//	int i;
-        printf("Inside  the enclave - output ciphertext: \"");
-        unsigned char *i = savedCiphertext;
-        while(*i){
-		printf("%x", *i);
-                *i++;
-	}
-        printf("\"\n");
-}
-*/
-
 
 void get_sha256(unsigned char *ciphertext, size_t len)
 {
@@ -721,8 +691,74 @@ void get_sha256(unsigned char *ciphertext, size_t len)
    }
 }
 
-void gen_hmac_sha256(char *plaintext, size_t len)
+#define HMAC_SHA256_LEN 32
+hmac_state hmac;
+unsigned long hmac_sha256_len = 32;
+unsigned char hmac_sha256_out[HMAC_SHA256_LEN] = {'\0'};
+int hash = 0;
+unsigned char keyy[6] = "hello";
+unsigned long keyylen = 5;
+#define KEYLEN 32
+//unsigned int keylen = 32;
+//uintptr_t key[keylen] = {'\0'};
+void gen_hmac_sha256(unsigned char *plaintext, size_t len)
 {
+
+   int err;   
+   if(!init)
+   {
+      init = 1;
+      XMEMCPY(&hash_descriptor[hash], &sha256_desc, sizeof(struct ltc_hash_descriptor));
+      unsigned int keylen = 32;
+      uintptr_t key[keylen];
+      int ret;
+      ret = sgx_read_rand((unsigned char *)&key, sizeof(key));
+      printf("%d %d\n", sizeof(key), keylen);
+
+      if (err != SGX_SUCCESS)
+      {
+         printf("Enclave.cpp: Error generating key\n");
+      }
+         int i;
+         for(i = 0; i < KEYLEN; i++)
+         {
+            printf("%02x ", key[i]);
+         }
+         printf("\n");
+
+      err = hmac_init(&hmac, hash, (unsigned char*) key, keylen);
+      //err = hmac_init(&hmac, hash, keyy, keyylen);
+      if (err != 0) 
+      {
+         printf("Enclave.cpp: Error initializing hmac with sha256 hash!\n");
+      }
+   }
+
+   err = hmac_process(&hmac, plaintext, len-1);
+   if (err != 0)
+   {
+      printf("Enclave.cpp: Error process hmac with sha256 hash!\n");
+   }
+
+   if(len < BUFFERSIZE + 1)
+   {
+      init = 0;
+      err = hmac_done(&hmac, hmac_sha256_out, &hmac_sha256_len);
+      if (err == 0)
+      {
+         printf("Enclave.cpp: Created hmac sha256 hash: ");
+         int i;
+         for(i = 0; i < 32; i++)
+         {
+            printf("%02x", hmac_sha256_out[i]);
+         }
+         printf("\n");
+      }
+      else
+      {
+         printf("Enclave.cpp: Error creating hmac sha256 hash!\n");
+      }
+}
 /*
 unsigned int SIZE = 10;
 uintptr_t r[SIZE];
@@ -735,6 +771,10 @@ for(i = 0; i < SIZE; i++)
    printf("%08x \n", r[i]);
 printf("\n");
 */
+
+
+/*
+
    if(len > strlen(plaintext))
    {
        memcpy(savedPlaintext, plaintext, strlen(plaintext) + 1);
@@ -801,7 +841,7 @@ printf("\n");
 		*i++;
 	}
 	printf("\n");
-
+*/
    
    
    //printf("%d\n", sha256_desc.hashsize);
@@ -819,11 +859,21 @@ printf("\n");
 }
 
 void get_hmac_sha256(unsigned char *ciphertext, size_t len) {
+   if(len == HMAC_SHA256_LEN)
+   {
+      memcpy(ciphertext, hmac_sha256_out, HMAC_SHA256_LEN);
+   }
+   else
+   {
+      memcpy(ciphertext, "false", strlen("false") + 1);
+   }
+/*
     if (len > strlen((char *)savedCiphertext))
     {
         memcpy(ciphertext, savedCiphertext, strlen((char *)savedCiphertext) + 1);
     } else {
         memcpy(ciphertext, "false", strlen("false") + 1);
     }
+*/
 }
 
