@@ -398,7 +398,7 @@ int main(int argc, char* argv[])
 
 
 
-    printf("hello1\n\n");
+//    printf("hello1\n\n");
     sgx_status_t ret = SGX_SUCCESS;
     int retval = 0;
     int updated = 0;
@@ -416,17 +416,18 @@ int main(int argc, char* argv[])
     }
 */
 
-    printf("hello2\n\n");
+//    printf("hello2\n\n");
 //    char plaintext[MAX_BUF_LEN] = {'\0'};
 //    printf("Outside the enclave - input  plaintext:  \"%s\"\n", plaintext);
 
+    //unsigned char buf[BUFFERSIZE] = {'\0'};
     unsigned char buf[BUFFERSIZE+1] = {'\0'};
     size_t x;
     //FILE *fid = fopen("fox.txt", "r");
   //  FILE *fid = fopen("gutenberg/out.txt", "r");
 //4300-0.txt
     int fid; 
-    fid = open("gutenberg/4300-0.txt", O_RDONLY|O_LARGEFILE);
+    fid = open("gutenberg/out.txt", O_RDONLY|O_LARGEFILE);
 
     if (fid == -1){
        return -1;
@@ -434,6 +435,7 @@ int main(int argc, char* argv[])
 	int i;
 
 //lseek(fid, 0L, SEEK_END);
+
 unsigned long int size = lseek(fid, 0L, SEEK_END);
 lseek(fid,0,SEEK_SET);
 //char plaintext[size+1];
@@ -458,20 +460,21 @@ int j = 0;
 do
 {
 // 1048576
-   readlen=read(fid,buf,4096);
+   readlen=read(fid,buf,BUFFERSIZE);
 //printf("%zu %d\n", strlen(buf), readlen);
    //readnow=read(fid,((char *)plaintext)+chunk,4096);
 
- //  printf("%s", buf);
+//   printf("%s", buf);
    if (readlen < 0 )
    {
       close (fid);
       return -1;
    }
-enclave_copy(global_eid, buf, strlen((char *)buf)+1);
+	enclave_copy(global_eid, buf, readlen+1);
+//enclave_copy(global_eid, buf, strlen((char*)buf)+1);
 memset(buf,'\0',sizeof(buf));
 j++;
-//if (j == 2)
+//if (j == 1)
 //break;
 //   enclave_copy(global_eid, buf, strlen(buff)+1);
 //   chunk=chunk+readnow;
@@ -507,8 +510,8 @@ if (close(fid))
 
 //for(i = 0; i < size+1; i++)
 //printf("%s", plaintext);
-printf("%d %d %d %d %d\n", strlen((char*)plaintext), sizeof(plaintext), chunk, sizeof(buf), readlen);
-printf("%d\n", size);
+//printf(" %d %d %d\n",  chunk, sizeof(buf), readlen);
+//printf("%d\n", size);
 //    enclave_copy(global_eid, plaintext, strlen(plaintext)+1);
 
 /*
