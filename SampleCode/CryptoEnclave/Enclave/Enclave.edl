@@ -41,19 +41,20 @@ enclave {
 //        include "sgx_utils.h"
 
     trusted {
-		public int  initialize_enclave([in]struct sealed_buf_t* sealed_buf);
-		public int  increase_and_seal_data(size_t tid, [in, out]struct sealed_buf_t* sealed_buf);
+//		public int  initialize_enclave([in]struct sealed_buf_t* sealed_buf);
+//		public int  increase_and_seal_data(size_t tid, [in, out]struct sealed_buf_t* sealed_buf);
 
-                public void dump_secret([in, size=len] char *secret, size_t len);
-        	public void get_secret([out, size=len] char *output, size_t len);
-        	public void gen_sha256([in, size=len] char *plaintext, size_t len);
-        	public void enclave_copy([in, size=len] unsigned char *plaintext, size_t len);
-        	public void get_sha256([out, size=len] unsigned char *output, size_t len);
-        	public void gen_hmac_sha256([in, size=len] char *plaintext, size_t len);
-        	public void get_hmac_sha256([out, size=len] unsigned char *output, size_t len);
+                public void dump_key([in, size=len] unsigned char *secret, size_t len);
+                public void gen_key([in, size=len] unsigned char *secret, size_t len);
+//        	public void get_secret([out, size=len] char *output, size_t len);
+        	public void gen_sha256([in, size=len] unsigned char *plaintext, size_t len);
+//        	public void enclave_copy([in, size=len] unsigned char *plaintext, size_t len);
+        	public void get_sha256([out, size=len] unsigned char *ciphertext, size_t len);
+        	public void gen_hmac_sha256([in, size=len] unsigned char *plaintext, size_t len);
+        	public void get_hmac_sha256([out, size=len] unsigned char *ciphertext, size_t len);
 	};
     untrusted {
 		void print([in, string] const char *string);
-                void ocall_print_string([in, string] const char *str);
+                //void ocall_print_string([in, string] const char *str);
     };
 };
