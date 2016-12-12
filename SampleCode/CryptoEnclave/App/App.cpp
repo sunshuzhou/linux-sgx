@@ -71,6 +71,16 @@ void print(const char *str)
     cout<<str;
 }
 
+void print_bits(unsigned char *bits)
+{
+   int i;
+   for(i = 0; i < 32; i++)
+   {
+      printf("%02x", bits[i]);
+   }
+
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -78,18 +88,35 @@ int main(int argc, char* argv[])
    (void)argv;
 
    int fid;
-   if(argc == 2)
+   if((argc == 5) && !strcmp(argv[1], "-a") && !strcmp(argv[3], "-infile"))
    {
-      fid = open(argv[1], O_RDONLY|O_LARGEFILE);
+      fid = open(argv[4], O_RDONLY|O_LARGEFILE);
       if (fid == -1)
       {
-         printf("USAGE: %s FILE_PATH\n", argv[0]);
+         printf("USAGE: %s -a <sha256|hmac_sha256> [-userkey|-randomkey <key>] -intext|-infile <input>\n", argv[0]);
          return (-1);
       }
    }
+   else if((argc == 5) && !strcmp(argv[1], "-a") && !strcmp(argv[3], "-intext"))
+   {
+      ;
+   }
+   else if((argc == 7) && !strcmp(argv[1], "-a") && !strcmp(argv[5], "-infile"))
+   {
+      fid = open(argv[6], O_RDONLY|O_LARGEFILE);
+      if (fid == -1)
+      {
+         printf("USAGE: %s -a <sha256|hmac_sha256> [-userkey|-randomkey <key>] -intext|-infile <input>\n", argv[0]);
+         return (-1);
+      }
+   }
+   else if((argc == 7) && !strcmp(argv[1], "-a") && !strcmp(argv[5], "-intext"))
+   {
+      ;
+   }
    else
    {
-      printf("USAGE: %s FILE_PATH\n", argv[0]);
+      printf("USAGE: %s -a <sha256|hmac_sha256> [-userkey|-randomkey <key>] -intext|-infile <input>\n", argv[0]);
       return (-1);
    }
 
@@ -100,67 +127,143 @@ int main(int argc, char* argv[])
       return (-1);
    }
 
+
    unsigned char buf[BUFFERSIZE+1] = {'\0'};
    size_t len;
-
-   do
+int i;
+   if(!strcmp(argv[2], "sha256"))
    {
-      len=read(fid,buf,BUFFERSIZE);
-      if (len < 0 )
+      unsigned char sha256_out[SHA256_LEN] = {'\0'};
+      if(!strcmp(argv[3], "-infile"))
       {
-         close (fid);
-         return (-1);
+         do
+         {
+            len = read(fid,buf,BUFFERSIZE);
+            if (len < 0 )
+            {
+               close (fid);
+               return (-1);
+            }
+            gen_sha256(global_eid, buf, len + 1);
+            memset(buf,'\0',sizeof(buf));
+         } 
+         while (len == sizeof(buf) - 1);
+
+         memset(buf,'\0',sizeof(buf));
+         if (close(fid)) 
+         {
+            return (-1);
+         }
+
+         get_sha256(global_eid, sha256_out, SHA256_LEN);
+         printf("    App.cpp: sha256 hash: ");
+         print_bits(sha256_out);
+         printf("\n");
       }
-      gen_sha256(global_eid, buf, len + 1);
-      memset(buf,'\0',sizeof(buf));
-   } 
-   while (len == sizeof(buf) - 1);
 
-   memset(buf,'\0',sizeof(buf));
-   if (close(fid)) 
-   {
-      return (-1);
-   }
-
-   unsigned char sha256_out[SHA256_LEN] = {'\0'};
-   get_sha256(global_eid, sha256_out, SHA256_LEN);
-   printf("    App.cpp: Created      sha256 hash: ");
-   int i;
-   for(i = 0; i < 32; i++)
-   {
-         printf("%02x", sha256_out[i]);
-   }
-   printf("\n");
-
-   fid = open(argv[1], O_RDONLY|O_LARGEFILE);
-
-   do
-   {
-      len=read(fid,buf,BUFFERSIZE);
-      if (len < 0 )
+      if(!strcmp(argv[3], "-intext"))
       {
-         close (fid);
-         return (-1);
+         len = strlen(argv[4]);
+         if(len < BUFFERSIZE)
+         {
+            gen_sha256(global_eid, (unsigned char *) argv[4], len + 1);
+            get_sha256(global_eid, sha256_out, SHA256_LEN);
+            printf("    App.cpp: sha256 hash: ");
+            print_bits(sha256_out);
+            printf("\n");
+         }
+         else
+         {
+            printf("We do not support string literals more than %d\n", BUFFERSIZE);
+            return(-1);
+         }
       }
-      gen_hmac_sha256(global_eid, buf, len + 1);
-      memset(buf,'\0',sizeof(buf));
    }
-   while (len == sizeof(buf) - 1);
-
-   memset(buf,'\0',sizeof(buf));
-   if (close(fid)) 
+   if(!strcmp(argv[2], "hmac_sha256"))
    {
-      return (-1);
-   }
+      unsigned char hmac_sha256_out[HMAC_SHA256_LEN] = {'\0'};
+      if(!strcmp(argv[5], "-infile"))
+      {
+         if(!strcmp(argv[3], "-userkey"))
+         {
+            if(!strlen(argv[4]))
+            {
+               printf("We do not support empty secrets\n");    
+               return(-1);
+            } 
+            dump_key(global_eid, (unsigned char *)argv[4], strlen(argv[4]) + 1);
+            printf("    App.cpp: hmac sha256 hash  key: %s\n", argv[4] );
+         }
+	 else if(!strcmp(argv[3], "-randomkey"))
+         {
+            gen_key(global_eid, (unsigned char *)argv[4], strlen(argv[4]) + 1);
+         }
+         else
+         {
+            printf("USAGE: %s -a <sha256|hmac_sha256> [-userkey|-randomkey <key>] -intext|-infile <input>\n", argv[0]);
+            return (-1);
+         }
+         do
+         {
+            len = read(fid, buf, BUFFERSIZE);
+            if (len < 0 )
+            {
+               close (fid);
+               return (-1);
+            }
+            gen_hmac_sha256(global_eid, buf, len + 1);
+            memset(buf,'\0',sizeof(buf));
+         }
+         while (len == sizeof(buf) - 1);
 
-   unsigned char hmac_sha256_out[HMAC_SHA256_LEN] = {'\0'};
-   get_hmac_sha256(global_eid, hmac_sha256_out, HMAC_SHA256_LEN);
-   printf("    App.cpp: Created hmac sha256 hash: ");
-   for(i = 0; i < 32; i++)
-   {
-         printf("%02x", hmac_sha256_out[i]);
+         memset(buf,'\0',sizeof(buf));
+         if (close(fid)) 
+         {
+            return (-1);
+         }
+
+         get_hmac_sha256(global_eid, hmac_sha256_out, HMAC_SHA256_LEN);
+         printf("    App.cpp: hmac sha256 hash: ");
+         print_bits(hmac_sha256_out);
+         printf("\n");
+      }
+      if(!strcmp(argv[5], "-intext"))
+      {
+         if(!strcmp(argv[3], "-userkey"))
+         {
+            if(!strlen(argv[4]))
+            {
+               printf("We do not support empty secrets\n");    
+               return(-1);
+            } 
+            dump_key(global_eid, (unsigned char *)argv[4], strlen(argv[4]) + 1);
+            printf("    App.cpp: hmac sha256 hash  key: %s\n", argv[4] );
+         }
+	 else if(!strcmp(argv[3], "-randomkey"))
+         {
+            gen_key(global_eid, (unsigned char *)argv[4], strlen(argv[4]) + 1);
+         }
+         else
+         {
+            printf("USAGE: %s -a <sha256|hmac_sha256> [-userkey|-randomkey <key>] -intext|-infile <input>\n", argv[0]);
+            return (-1);
+         }
+         len = strlen(argv[6]);
+         if(len < BUFFERSIZE)
+         {
+            gen_hmac_sha256(global_eid, (unsigned char *) argv[6], len + 1);
+            get_hmac_sha256(global_eid, hmac_sha256_out, HMAC_SHA256_LEN);
+            printf("    App.cpp: hmac sha256 hash: ");
+            print_bits(hmac_sha256_out);
+            printf("\n");
+         }
+         else
+         {
+            printf("We do not support string literals more than %d\n", BUFFERSIZE);
+            return(-1);
+         }
+      }
    }
-   printf("\n");
 
 /*
     do {
