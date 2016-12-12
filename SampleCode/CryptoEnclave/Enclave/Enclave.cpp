@@ -664,7 +664,7 @@ void gen_sha256(unsigned char *plaintext, size_t len)
       err = sha256_done(&state, sha256_out);
       if(err == 0)
       {
-         printf("Enclave.cpp: Created      sha256 hash: ");
+         printf("Enclave.cpp: sha256 hash: ");
          int i;
          for(i = 0; i < 32; i++)
          {
@@ -701,6 +701,47 @@ unsigned long keyylen = 5;
 #define KEYLEN 32
 //unsigned int keylen = 32;
 //uintptr_t key[keylen] = {'\0'};
+unsigned char *key = NULL;
+unsigned long keylen = 0;
+
+void dump_key(unsigned char *secret, size_t len)
+{
+   if(len > 1)
+   {
+       keylen = len - 1;
+       key = (unsigned char *) malloc((keylen+1) * sizeof(unsigned char));
+       memset(key, '\0', keylen+1);
+       memcpy(key, secret, keylen);
+       printf("Enclave.cpp: hmac sha256 hash  key: %s\n", key);
+   }
+   else
+   {
+      ;
+   }
+}
+
+void gen_key(unsigned char *secretlen, size_t len)
+{
+   int err;
+   keylen =  atoi((char *)secretlen);
+   key = (unsigned char *) malloc(keylen * sizeof(unsigned char));
+   err = sgx_read_rand(key, keylen);
+   if (err != SGX_SUCCESS)
+   {
+      printf("Enclave.cpp: Error generating key\n");
+   }
+
+   int i;
+   printf("Enclave.cpp: hmac sha256 hash  key: ");
+
+   for(i = 0; i < keylen; i++)
+   {
+   printf("%02x", key[i]);
+   }
+   printf("\n");
+
+}
+
 void gen_hmac_sha256(unsigned char *plaintext, size_t len)
 {
 
@@ -709,24 +750,29 @@ void gen_hmac_sha256(unsigned char *plaintext, size_t len)
    {
       init = 1;
       XMEMCPY(&hash_descriptor[hash], &sha256_desc, sizeof(struct ltc_hash_descriptor));
+/*
       unsigned int keylen = 32;
+     // unsigned char key[keylen] = {'\0'};
       uintptr_t key[keylen];
-      int ret;
-      ret = sgx_read_rand((unsigned char *)&key, sizeof(key));
-      printf("%d %d\n", sizeof(key), keylen);
+      //err = sgx_read_rand(key, sizeof(key));
+      err = sgx_read_rand((unsigned char *)&key, sizeof(key));
+      printf("%d %d %d %d %d\n", sizeof(key), keylen, sizeof(uintptr_t), sizeof(unsigned char*), sizeof(unsigned char));
 
       if (err != SGX_SUCCESS)
       {
          printf("Enclave.cpp: Error generating key\n");
       }
+
          int i;
+         printf("\n");
          for(i = 0; i < KEYLEN; i++)
          {
-            printf("%02x ", key[i]);
+            printf("%02x", key[i]);
          }
          printf("\n");
-
-      err = hmac_init(&hmac, hash, (unsigned char*) key, keylen);
+*/
+      err = hmac_init(&hmac, hash, key, keylen);
+      //err = hmac_init(&hmac, hash, (unsigned char*) key, keylen);
       //err = hmac_init(&hmac, hash, keyy, keyylen);
       if (err != 0) 
       {
@@ -746,7 +792,7 @@ void gen_hmac_sha256(unsigned char *plaintext, size_t len)
       err = hmac_done(&hmac, hmac_sha256_out, &hmac_sha256_len);
       if (err == 0)
       {
-         printf("Enclave.cpp: Created hmac sha256 hash: ");
+         printf("Enclave.cpp: hmac sha256 hash: ");
          int i;
          for(i = 0; i < 32; i++)
          {
