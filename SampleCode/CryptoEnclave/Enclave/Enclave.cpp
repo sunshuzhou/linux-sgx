@@ -1222,65 +1222,40 @@ void decrypt_aes_ecb(unsigned char *ciphertext, size_t plen, unsigned char *plai
    unsigned char current_block_plaintext[16] = {'\0'};
    unsigned char current_block_ciphertext[16] = {'\0'};
    unsigned int chunk = 0;
-   unsigned int remained = plen - len;
-//        symmetric_key ecb_key;
-//	SETUP(key, keylen, 0, &ecb_key);
+   unsigned int remained = len;
 
-  printf("%d %d \n", plen, len);
-int i = 0;
-
-      while((chunk + BLOCKSIZE) <= (plen - 1))
-      {
-         memset(current_block_plaintext, '\0', BLOCKSIZE);
-         memset(current_block_ciphertext, '\0', BLOCKSIZE);
-         memcpy(current_block_ciphertext, (unsigned char *)ciphertext + chunk, BLOCKSIZE);
-         ECB_DEC(current_block_ciphertext, current_block_plaintext, &ecb_key);
-         memcpy(plaintext + chunk, current_block_plaintext, BLOCKSIZE);
-         remained = remained - BLOCKSIZE;
-         chunk = chunk + BLOCKSIZE;
-      }
-//plaintext[len-1] = '\0';
-printf("XXX %s XXXX\n", plaintext);
-
-   for(i = 0; i < 16; i++)
+   while((chunk + BLOCKSIZE) <= len - 1)
    {
-      printf("%02x", current_block_ciphertext[i]);
+      memset(current_block_plaintext, '\0', BLOCKSIZE);
+      memset(current_block_ciphertext, '\0', BLOCKSIZE);
+      memcpy(current_block_ciphertext, (unsigned char *)ciphertext + chunk, BLOCKSIZE);
+      ECB_DEC(current_block_ciphertext, current_block_plaintext, &ecb_key);
+      memcpy(plaintext + chunk, current_block_plaintext, BLOCKSIZE);
+      remained = remained - BLOCKSIZE;
+      chunk = chunk + BLOCKSIZE;
+   }
+   /* ZERO padded */
+   if(remained != 0)
+   {
+      memset(current_block_plaintext, '\0', BLOCKSIZE);
+      memset(current_block_ciphertext, '\0', BLOCKSIZE);
+      memcpy(current_block_ciphertext, (unsigned char *)ciphertext + chunk, BLOCKSIZE);
+      ECB_DEC(current_block_ciphertext, current_block_plaintext, &ecb_key);
+      memcpy(plaintext + chunk, current_block_plaintext, remained);
+      remained = remained - remained;
+      chunk = chunk + BLOCKSIZE;
+   }
+/*
+   int i = 0
+   for(i = 0; i < plen; i++)
+   {
+      if((i % 16 == 0) && i > 0)
+      { 
+         printf("\n");
+      }
+      printf("%02x", ciphertext[i]);
    }
    printf("\n");
-      
-//      printf("%s\n", plaintext);
-      /* ZERO padding */
-
-/*	
-	printf("Inside the enclave ciphertext: ");
-	length = (int) len;
-	for(i = 0; i < length; i++){
-		printf("%x", ciphertext[i]);
-	}
-	
-	SETUP(key, keylen, 0, &ecb_key);
-	current = 0;
-	while(len >= 0)
-	{
-		//copies over plain_text
-		for(i=0; i < 16; i++){
-			current_block_ciphertext[i] = ciphertext[i+current];
-		}
-		
-		ECB_DEC(current_block_plaintext, current_block_ciphertext, &ecb_key);
-		//copies over cipher text
-		for(i=0; i < 16; i++){
-			plaintext[i+current] = current_block_plaintext[i];
-		}
-		
-		len -= 16;
-		current += 16;
-	}
-	
-	printf("Inside the enclave plaintext: ");
-	for(i = 0; i < length; i++){
-		printf("%c", plaintext[i]);
-	}
 */
 }
 
