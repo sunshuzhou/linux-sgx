@@ -64,6 +64,15 @@ void zeromem(volatile void *out, size_t outlen)
    }
 }
 
+static unsigned int setup_mix(unsigned int temp)
+{
+   return (Te4_3[byte(temp, 2)]) ^
+          (Te4_2[byte(temp, 1)]) ^
+          (Te4_1[byte(temp, 0)]) ^
+          (Te4_0[byte(temp, 3)]);
+}
+
+
 unsigned char savedSecret[100] = {'\0'};
 unsigned char savedPlaintext[100] = {'\0'};
 unsigned char savedCiphertext[100] = {'\0'};
@@ -309,45 +318,6 @@ int func_name (hash_state *md, unsigned char *in, unsigned long inlen)          
     return 0;                                                                        \
 }
 HASH_PROCESS(sha256_process, sha256_compress, sha256, 64)
-
-/*
-int sha256_process (hash_state *md, unsigned char *in, unsigned long inlen)
-{                                                                          
-    int block_size = 64;
-    unsigned long n;                                                       
-    int           err;                                                     
-    if (md->sha256.curlen > sizeof(md->sha256.buf)) {            
-       return -1;                                                          
-    }                                                                      
-    if ((md->sha256.length + inlen) < md->sha256.length) {       
-      return -1;                                                           
-    }                                                                      
-    while (inlen > 0) {                                                    
-        if (md->sha256.curlen == 0 && inlen >= block_size) {          
-           if ((err = sha256_compress(md, (unsigned char *)in)) != 0) {     
-              return err;                                                  
-           }                                                               
-           md->sha256.length += block_size * 8;                       
-           in             += block_size;                                   
-           inlen          -= block_size;                                   
-        } else {                                                           
-           n = MIN(inlen, (block_size - md->sha256.curlen));          
-           XMEMCPY(md->sha256.buf + md->sha256.curlen, in, (size_t)n);
-           md->sha256.curlen += n;                                        
-           in             += n;                                                
-           inlen          -= n;                                                
-           if (md->sha256.curlen == block_size) {                         
-              if ((err = sha256_compress(md, md->sha256.buf)) != 0) {      
-                 return err;                                                   
-              }                                                                
-              md->sha256.length += 8*block_size;                          
-              md->sha256.curlen = 0;                                      
-           }                                                                   
-       }                                                                       
-    }                                                                          
-    return 0;                                                                  
-}
-*/
 
 int sha256_done(hash_state *md, unsigned char *out)
 {
@@ -635,9 +605,766 @@ LBL_ERR:
     return err;
 }
 
-#define BUFFERSIZE 4096
-#define SHA256_LEN 32
+
+
+int SETUP(const unsigned char *key, unsigned long keylen, int num_rounds, symmetric_key *skey)
+{
+    int i;
+    unsigned int temp, *rk;
+    unsigned int *rrk;
+
+    if (keylen != 16 && keylen != 24 && keylen != 32) {
+       return -1;
+    }
+
+    if (num_rounds != 0 && num_rounds != (10 + ((keylen/8)-2)*2)) {
+       return -1;
+    }
+
+    skey->rijndael.Nr = 10 + ((keylen/8)-2)*2;
+
+    /* setup the forward key */
+    i                 = 0;
+    rk                = skey->rijndael.eK;
+    LOAD32H(rk[0], key     );
+    LOAD32H(rk[1], key +  4);
+    LOAD32H(rk[2], key +  8);
+    LOAD32H(rk[3], key + 12);
+    if (keylen == 16) {
+        for (;;) {
+            temp  = rk[3];
+            rk[4] = rk[0] ^ setup_mix(temp) ^ rcon[i];
+            rk[5] = rk[1] ^ rk[4];
+            rk[6] = rk[2] ^ rk[5];
+            rk[7] = rk[3] ^ rk[6];
+            if (++i == 10) {
+               break;
+            }
+            rk += 4;
+        }
+    } else if (keylen == 24) {
+        LOAD32H(rk[4], key + 16);
+        LOAD32H(rk[5], key + 20);
+        for (;;) {
+        #ifdef _MSC_VER
+            temp = skey->rijndael.eK[rk - skey->rijndael.eK + 5];
+        #else
+            temp = rk[5];
+        #endif
+            rk[ 6] = rk[ 0] ^ setup_mix(temp) ^ rcon[i];
+            rk[ 7] = rk[ 1] ^ rk[ 6];
+            rk[ 8] = rk[ 2] ^ rk[ 7];
+            rk[ 9] = rk[ 3] ^ rk[ 8];
+            if (++i == 8) {
+                break;
+            }
+            rk[10] = rk[ 4] ^ rk[ 9];
+            rk[11] = rk[ 5] ^ rk[10];
+            rk += 6;
+        }
+    } else if (keylen == 32) {
+        LOAD32H(rk[4], key + 16);
+        LOAD32H(rk[5], key + 20);
+        LOAD32H(rk[6], key + 24);
+        LOAD32H(rk[7], key + 28);
+        for (;;) {
+        #ifdef _MSC_VER
+            temp = skey->rijndael.eK[rk - skey->rijndael.eK + 7];
+        #else
+            temp = rk[7];
+        #endif
+            rk[ 8] = rk[ 0] ^ setup_mix(temp) ^ rcon[i];
+            rk[ 9] = rk[ 1] ^ rk[ 8];
+            rk[10] = rk[ 2] ^ rk[ 9];
+            rk[11] = rk[ 3] ^ rk[10];
+            if (++i == 7) {
+                break;
+            }
+            temp = rk[11];
+            rk[12] = rk[ 4] ^ setup_mix(RORc(temp, 8));
+            rk[13] = rk[ 5] ^ rk[12];
+            rk[14] = rk[ 6] ^ rk[13];
+            rk[15] = rk[ 7] ^ rk[14];
+            rk += 8;
+        }
+    } else {
+       /* this can't happen */
+       /* coverity[dead_error_line] */
+       return -1;
+    }
+    /* setup the inverse key now */
+    rk   = skey->rijndael.dK;
+    rrk  = skey->rijndael.eK + (28 + keylen) - 4;
+
+    /* apply the inverse MixColumn transform to all round keys but the first and the last: */
+    /* copy first */
+    *rk++ = *rrk++;
+    *rk++ = *rrk++;
+    *rk++ = *rrk++;
+    *rk   = *rrk;
+    rk -= 3; rrk -= 3;
+
+    for (i = 1; i < skey->rijndael.Nr; i++) {
+        rrk -= 4;
+        rk  += 4;
+   
+        temp = rrk[0];
+        rk[0] =
+            Tks0[byte(temp, 3)] ^
+            Tks1[byte(temp, 2)] ^
+            Tks2[byte(temp, 1)] ^
+            Tks3[byte(temp, 0)];
+        temp = rrk[1];
+        rk[1] =
+            Tks0[byte(temp, 3)] ^
+            Tks1[byte(temp, 2)] ^
+            Tks2[byte(temp, 1)] ^
+            Tks3[byte(temp, 0)];
+        temp = rrk[2];
+        rk[2] =
+            Tks0[byte(temp, 3)] ^
+            Tks1[byte(temp, 2)] ^
+            Tks2[byte(temp, 1)] ^
+            Tks3[byte(temp, 0)];
+        temp = rrk[3];
+        rk[3] =
+            Tks0[byte(temp, 3)] ^
+            Tks1[byte(temp, 2)] ^
+            Tks2[byte(temp, 1)] ^
+            Tks3[byte(temp, 0)];
+    }
+
+    /* copy last */
+    rrk -= 4;
+    rk  += 4;
+    *rk++ = *rrk++;
+    *rk++ = *rrk++;
+    *rk++ = *rrk++;
+    *rk   = *rrk;
+
+    return 0;
+}
+
+int ECB_ENC(const unsigned char *pt, unsigned char *ct, symmetric_key *skey)
+{
+    unsigned int s0, s1, s2, s3, t0, t1, t2, t3, *rk;
+    int Nr, r;
+    Nr = skey->rijndael.Nr;
+    rk = skey->rijndael.eK;
+
+    /*
+     * map byte array block to cipher state
+     * and add initial round key:
+     */
+    LOAD32H(s0, pt      ); s0 ^= rk[0];
+    LOAD32H(s1, pt  +  4); s1 ^= rk[1];
+    LOAD32H(s2, pt  +  8); s2 ^= rk[2];
+    LOAD32H(s3, pt  + 12); s3 ^= rk[3];
+
+    /*
+     * Nr - 1 full rounds:
+     */
+    r = Nr >> 1;
+    for (;;) {
+        t0 =
+            Te0(byte(s0, 3)) ^
+            Te1(byte(s1, 2)) ^
+            Te2(byte(s2, 1)) ^
+            Te3(byte(s3, 0)) ^
+            rk[4];
+        t1 =
+            Te0(byte(s1, 3)) ^
+            Te1(byte(s2, 2)) ^
+            Te2(byte(s3, 1)) ^
+            Te3(byte(s0, 0)) ^
+            rk[5];
+        t2 =
+            Te0(byte(s2, 3)) ^
+            Te1(byte(s3, 2)) ^
+            Te2(byte(s0, 1)) ^
+            Te3(byte(s1, 0)) ^
+            rk[6];
+        t3 =
+            Te0(byte(s3, 3)) ^
+            Te1(byte(s0, 2)) ^
+            Te2(byte(s1, 1)) ^
+            Te3(byte(s2, 0)) ^
+            rk[7];
+
+        rk += 8;
+        if (--r == 0) {
+            break;
+        }
+
+        s0 =
+            Te0(byte(t0, 3)) ^
+            Te1(byte(t1, 2)) ^
+            Te2(byte(t2, 1)) ^
+            Te3(byte(t3, 0)) ^
+            rk[0];
+        s1 =
+            Te0(byte(t1, 3)) ^
+            Te1(byte(t2, 2)) ^
+            Te2(byte(t3, 1)) ^
+            Te3(byte(t0, 0)) ^
+            rk[1];
+        s2 =
+            Te0(byte(t2, 3)) ^
+            Te1(byte(t3, 2)) ^
+            Te2(byte(t0, 1)) ^
+            Te3(byte(t1, 0)) ^
+            rk[2];
+        s3 =
+            Te0(byte(t3, 3)) ^
+            Te1(byte(t0, 2)) ^
+            Te2(byte(t1, 1)) ^
+            Te3(byte(t2, 0)) ^
+            rk[3];
+    }
+
+    /*
+     * apply last round and
+     * map cipher state to byte array block:
+     */
+    s0 =
+        (Te4_3[byte(t0, 3)]) ^
+        (Te4_2[byte(t1, 2)]) ^
+        (Te4_1[byte(t2, 1)]) ^
+        (Te4_0[byte(t3, 0)]) ^
+        rk[0];
+    STORE32H(s0, ct);
+    s1 =
+        (Te4_3[byte(t1, 3)]) ^
+        (Te4_2[byte(t2, 2)]) ^
+        (Te4_1[byte(t3, 1)]) ^
+        (Te4_0[byte(t0, 0)]) ^
+        rk[1];
+    STORE32H(s1, ct+4);
+    s2 =
+        (Te4_3[byte(t2, 3)]) ^
+        (Te4_2[byte(t3, 2)]) ^
+        (Te4_1[byte(t0, 1)]) ^
+        (Te4_0[byte(t1, 0)]) ^
+        rk[2];
+    STORE32H(s2, ct+8);
+    s3 =
+        (Te4_3[byte(t3, 3)]) ^
+        (Te4_2[byte(t0, 2)]) ^
+        (Te4_1[byte(t1, 1)]) ^
+        (Te4_0[byte(t2, 0)]) ^
+        rk[3];
+    STORE32H(s3, ct+12);
+
+    return 0;
+}
+
+
+
+int ECB_DEC(const unsigned char *ct, unsigned char *pt, symmetric_key *skey)
+{
+    unsigned int s0, s1, s2, s3, t0, t1, t2, t3, *rk;
+    int Nr, r;
+
+
+    Nr = skey->rijndael.Nr;
+    rk = skey->rijndael.dK;
+
+    /*
+     * map byte array block to cipher state
+     * and add initial round key:
+     */
+    LOAD32H(s0, ct      ); s0 ^= rk[0];
+    LOAD32H(s1, ct  +  4); s1 ^= rk[1];
+    LOAD32H(s2, ct  +  8); s2 ^= rk[2];
+    LOAD32H(s3, ct  + 12); s3 ^= rk[3];
+
+#ifdef LTC_SMALL_CODE
+    for (r = 0; ; r++) {
+        rk += 4;
+        t0 =
+            Td0(byte(s0, 3)) ^
+            Td1(byte(s3, 2)) ^
+            Td2(byte(s2, 1)) ^
+            Td3(byte(s1, 0)) ^
+            rk[0];
+        t1 =
+            Td0(byte(s1, 3)) ^
+            Td1(byte(s0, 2)) ^
+            Td2(byte(s3, 1)) ^
+            Td3(byte(s2, 0)) ^
+            rk[1];
+        t2 =
+            Td0(byte(s2, 3)) ^
+            Td1(byte(s1, 2)) ^
+            Td2(byte(s0, 1)) ^
+            Td3(byte(s3, 0)) ^
+            rk[2];
+        t3 =
+            Td0(byte(s3, 3)) ^
+            Td1(byte(s2, 2)) ^
+            Td2(byte(s1, 1)) ^
+            Td3(byte(s0, 0)) ^
+            rk[3];
+        if (r == Nr-2) {
+           break;
+        }
+        s0 = t0; s1 = t1; s2 = t2; s3 = t3;
+    }
+    rk += 4;
+
+#else
+    /*
+     * Nr - 1 full rounds:
+     */
+    r = Nr >> 1;
+    for (;;) {
+
+        t0 =
+            Td0(byte(s0, 3)) ^
+            Td1(byte(s3, 2)) ^
+            Td2(byte(s2, 1)) ^
+            Td3(byte(s1, 0)) ^
+            rk[4];
+        t1 =
+            Td0(byte(s1, 3)) ^
+            Td1(byte(s0, 2)) ^
+            Td2(byte(s3, 1)) ^
+            Td3(byte(s2, 0)) ^
+            rk[5];
+        t2 =
+            Td0(byte(s2, 3)) ^
+            Td1(byte(s1, 2)) ^
+            Td2(byte(s0, 1)) ^
+            Td3(byte(s3, 0)) ^
+            rk[6];
+        t3 =
+            Td0(byte(s3, 3)) ^
+            Td1(byte(s2, 2)) ^
+            Td2(byte(s1, 1)) ^
+            Td3(byte(s0, 0)) ^
+            rk[7];
+
+        rk += 8;
+        if (--r == 0) {
+            break;
+        }
+
+
+        s0 =
+            Td0(byte(t0, 3)) ^
+            Td1(byte(t3, 2)) ^
+            Td2(byte(t2, 1)) ^
+            Td3(byte(t1, 0)) ^
+            rk[0];
+        s1 =
+            Td0(byte(t1, 3)) ^
+            Td1(byte(t0, 2)) ^
+            Td2(byte(t3, 1)) ^
+            Td3(byte(t2, 0)) ^
+            rk[1];
+        s2 =
+            Td0(byte(t2, 3)) ^
+            Td1(byte(t1, 2)) ^
+            Td2(byte(t0, 1)) ^
+            Td3(byte(t3, 0)) ^
+            rk[2];
+        s3 =
+            Td0(byte(t3, 3)) ^
+            Td1(byte(t2, 2)) ^
+            Td2(byte(t1, 1)) ^
+            Td3(byte(t0, 0)) ^
+            rk[3];
+    }
+#endif
+
+    /*
+     * apply last round and
+     * map cipher state to byte array block:
+     */
+    s0 =
+        (Td4[byte(t0, 3)] & 0xff000000) ^
+        (Td4[byte(t3, 2)] & 0x00ff0000) ^
+        (Td4[byte(t2, 1)] & 0x0000ff00) ^
+        (Td4[byte(t1, 0)] & 0x000000ff) ^
+        rk[0];
+    STORE32H(s0, pt);
+    s1 =
+        (Td4[byte(t1, 3)] & 0xff000000) ^
+        (Td4[byte(t0, 2)] & 0x00ff0000) ^
+        (Td4[byte(t3, 1)] & 0x0000ff00) ^
+        (Td4[byte(t2, 0)] & 0x000000ff) ^
+        rk[1];
+    STORE32H(s1, pt+4);
+    s2 =
+        (Td4[byte(t2, 3)] & 0xff000000) ^
+        (Td4[byte(t1, 2)] & 0x00ff0000) ^
+        (Td4[byte(t0, 1)] & 0x0000ff00) ^
+        (Td4[byte(t3, 0)] & 0x000000ff) ^
+        rk[2];
+    STORE32H(s2, pt+8);
+    s3 =
+        (Td4[byte(t3, 3)] & 0xff000000) ^
+        (Td4[byte(t2, 2)] & 0x00ff0000) ^
+        (Td4[byte(t1, 1)] & 0x0000ff00) ^
+        (Td4[byte(t0, 0)] & 0x000000ff) ^
+        rk[3];
+    STORE32H(s3, pt+12);
+
+    return 0;
+}
+
+
+
+int cbc_start(unsigned char *IV, unsigned char *key, unsigned long keylen, int num_rounds, symmetric_CBC *cbc)
+{
+   int x, err;
+
+   if ((err = SETUP(key, keylen, num_rounds, &cbc->key)) != 0) {
+      return err;
+   }
+
+   cbc->blocklen = 16;
+   cbc->cipher   = 0;
+   for (x = 0; x < cbc->blocklen; x++) {
+       cbc->IV[x] = IV[x];
+   }
+   return 0;
+}
+
+void setup_key(unsigned char *IV, unsigned char *key_info, unsigned long keylen, int rounds, symmetric_CBC *cipher){
+	int err; 
+	err = cbc_start(IV, key_info, keylen, rounds, cipher);
+	if(err != 0){
+		printf("Error occurred\n");
+	}
+}
+
+int cbc_encrypt(const unsigned char *pt, unsigned char *ct, unsigned long len, symmetric_CBC *cbc)
+{
+   int x, err;
+
+   if (len % cbc->blocklen) {
+      printf("We have a problem");
+	  return -1;
+   }
+  
+  while (len) {
+	for (x = 0; x < cbc->blocklen; x++) {
+	   cbc->IV[x] ^= pt[x];
+	}
+
+		 if ((err = ECB_ENC(cbc->IV, ct, &cbc->key)) != 0) {
+			return err;
+		 }
+
+		 for (x = 0; x < cbc->blocklen; x++) {
+			cbc->IV[x] = ct[x];
+		 }
+		ct  += cbc->blocklen;
+		pt  += cbc->blocklen;
+		len -= cbc->blocklen;
+   }
+   return 0;
+}
+
+int cbc_decrypt(const unsigned char *ct, unsigned char *pt, unsigned long len, symmetric_CBC *cbc)
+{
+   int x, err;
+   unsigned char tmp[16];
+   unsigned char tmpy;
+
+      while (len) {
+
+         if ((err = ECB_DEC(ct, tmp, &cbc->key)) != 0) {
+            return err;
+         }
+
+
+         
+    
+		for (x = 0; x < cbc->blocklen; x++) {
+		   tmpy       = tmp[x] ^ cbc->IV[x];
+		   cbc->IV[x] = ct[x];
+		   pt[x]      = tmpy;
+		}
+
+         ct  += cbc->blocklen;
+         pt  += cbc->blocklen;
+         len -= cbc->blocklen;
+   }
+   return 0;
+}
+
+/*
+unsigned char key[25];
+unsigned char IV[16];
+int key_len;
+
+void aes_create_key(int key_length)
+{
+	int err = sgx_read_rand((unsigned char *)&key, key_length);
+	if (err != SGX_SUCCESS)
+       printf("ERROR\n");
+	
+	err = sgx_read_rand((unsigned char *)&IV, 16);
+	if (err != SGX_SUCCESS)
+       printf("ERROR\n");
+	
+	int i;
+	for(i = 0; i < key_length; i++)
+	   printf("%08x \n", key[i]);
+	printf("\n");
+		key_len = key_length;
+}
+*/
+
+
+unsigned char *IV = NULL;
+unsigned char *key = NULL;
+unsigned long keylen = 0;
+
+void dump_key(unsigned char *secret, size_t len)
+{
+   if(len > 1)
+   {
+       keylen = len - 1;
+       key = (unsigned char *) malloc((keylen+1) * sizeof(unsigned char));
+       memset(key, '\0', keylen+1);
+       memcpy(key, secret, keylen);
+       printf("Enclave.cpp: user key: \n%s\n", key);
+   }
+   else
+   {
+      ;
+   }
+}
+
+void gen_key(unsigned char *secretlen, size_t len)
+{
+   int err;
+   keylen =  atoi((char *)secretlen);
+   key = (unsigned char *) malloc(keylen * sizeof(unsigned char));
+   err = sgx_read_rand(key, keylen);
+   if (err != SGX_SUCCESS)
+   {
+      printf("Enclave.cpp: Error generating key\n");
+   }
+
+   int i;
+   printf("Enclave.cpp: random key: \n");
+   for(i = 0; i < keylen; i++)
+   {
+      printf("%02x", key[i]);
+   }
+   printf("\n");
+}
+
 int init = 0;
+#define BUFFERSIZE 4096
+#define BLOCKSIZE 16
+symmetric_key ecb_key;
+
+void encrypt_aes_ecb(unsigned char *plaintext, size_t len, unsigned char *ciphertext, size_t plen)
+{
+   int err;
+   unsigned char current_block_plaintext[BLOCKSIZE] = {'\0'};
+   unsigned char current_block_ciphertext[BLOCKSIZE] = {'\0'};
+   unsigned int chunk = 0;
+   unsigned int remained = len - 1;
+	
+   if(!init)
+   {
+      init = 1;
+      err = SETUP(key, keylen, 0, &ecb_key);
+      if(err == -1)
+      {
+         printf("Enclave.cpp: Error initializing aes\n");
+      }
+   }	
+
+      while((chunk + BLOCKSIZE) <= (len - 1))
+      {
+         memset(current_block_plaintext, '\0', BLOCKSIZE);
+         memset(current_block_ciphertext, '\0', BLOCKSIZE);
+         memcpy(current_block_plaintext, (unsigned char *)plaintext + chunk, BLOCKSIZE);
+         ECB_ENC(current_block_plaintext, current_block_ciphertext, &ecb_key);
+         memcpy(ciphertext + chunk, current_block_ciphertext, BLOCKSIZE);
+         remained = remained - BLOCKSIZE;
+         chunk = chunk + BLOCKSIZE;
+      }
+      /* ZERO padding */
+      if(remained != 0)
+      {
+         memset(current_block_plaintext, '\0', BLOCKSIZE);
+         memset(current_block_ciphertext, '\0', BLOCKSIZE);
+         memcpy(current_block_plaintext, (unsigned char *)plaintext + chunk, remained);
+         memset((unsigned char *)current_block_plaintext + ((chunk + remained) % BLOCKSIZE), 0x00, BLOCKSIZE - remained);
+         ECB_ENC(current_block_plaintext, current_block_ciphertext, &ecb_key);
+         memcpy(ciphertext + chunk, current_block_ciphertext, BLOCKSIZE);
+         chunk = chunk + BLOCKSIZE;
+      }
+/*
+   printf("Enclave.cpp: aes ciphertext: ");
+   for(i = 0; i < plen; i++)
+   {
+      if((i % 16 == 0) && i > 0)
+      { 
+         printf(" ");
+      }
+      printf("%02x", ciphertext[i]);
+   }
+   printf("\n");
+*/
+}
+
+void decrypt_aes_ecb(unsigned char *ciphertext, size_t plen, unsigned char *plaintext, unsigned long len){
+   int err;
+   unsigned char current_block_plaintext[16] = {'\0'};
+   unsigned char current_block_ciphertext[16] = {'\0'};
+   unsigned int chunk = 0;
+   unsigned int remained = plen - len;
+//        symmetric_key ecb_key;
+//	SETUP(key, keylen, 0, &ecb_key);
+
+  printf("%d %d \n", plen, len);
+int i = 0;
+
+      while((chunk + BLOCKSIZE) <= (plen - 1))
+      {
+         memset(current_block_plaintext, '\0', BLOCKSIZE);
+         memset(current_block_ciphertext, '\0', BLOCKSIZE);
+         memcpy(current_block_ciphertext, (unsigned char *)ciphertext + chunk, BLOCKSIZE);
+         ECB_DEC(current_block_ciphertext, current_block_plaintext, &ecb_key);
+         memcpy(plaintext + chunk, current_block_plaintext, BLOCKSIZE);
+         remained = remained - BLOCKSIZE;
+         chunk = chunk + BLOCKSIZE;
+      }
+//plaintext[len-1] = '\0';
+printf("XXX %s XXXX\n", plaintext);
+
+   for(i = 0; i < 16; i++)
+   {
+      printf("%02x", current_block_ciphertext[i]);
+   }
+   printf("\n");
+      
+//      printf("%s\n", plaintext);
+      /* ZERO padding */
+
+/*	
+	printf("Inside the enclave ciphertext: ");
+	length = (int) len;
+	for(i = 0; i < length; i++){
+		printf("%x", ciphertext[i]);
+	}
+	
+	SETUP(key, keylen, 0, &ecb_key);
+	current = 0;
+	while(len >= 0)
+	{
+		//copies over plain_text
+		for(i=0; i < 16; i++){
+			current_block_ciphertext[i] = ciphertext[i+current];
+		}
+		
+		ECB_DEC(current_block_plaintext, current_block_ciphertext, &ecb_key);
+		//copies over cipher text
+		for(i=0; i < 16; i++){
+			plaintext[i+current] = current_block_plaintext[i];
+		}
+		
+		len -= 16;
+		current += 16;
+	}
+	
+	printf("Inside the enclave plaintext: ");
+	for(i = 0; i < length; i++){
+		printf("%c", plaintext[i]);
+	}
+*/
+}
+
+
+void encrypt_aes_cbc(unsigned char *plaintext, unsigned char *ciphertext, unsigned long len){
+	int err, i, length;
+	symmetric_CBC cipher;	
+/*
+   IV = (unsigned char *) malloc(16 * sizeof(unsigned char));
+   err = sgx_read_rand(IV, 16);
+   if (err != SGX_SUCCESS)
+   {
+      printf("Enclave.cpp: Error generating key\n");
+   }
+   printf("Enclave.cpp: Initialization Vector: ");
+   for(i = 0; i < 16; i++)
+   {
+      printf("%02x", IV[i]);
+   }
+   printf("\n");
+*/
+	
+	setup_key(IV, key, keylen, 0, &cipher);
+	length = (int) len;
+	
+	printf("Inside the enclave plaintext: ");
+	for(i = 0; i < length; i++){
+		printf("%c", plaintext[i]);
+	}
+	
+	printf("\n");
+	
+	err = cbc_encrypt(plaintext, ciphertext, len, &cipher);
+	
+	printf("Inside the enclave ciphertext: ");
+	for(i = 0; i < length; i++){
+		printf("%x", ciphertext[i]);
+	}
+	
+	printf("\n");
+	
+	if(err != 0){
+		printf("Error occurred\n");
+	}
+}
+
+void decrypt_aes_cbc(unsigned char *plaintext, unsigned char *ciphertext, unsigned long len){
+	int err, i, length; 
+	symmetric_CBC cipher;
+	
+	setup_key(IV, key, keylen, 0, &cipher);
+	
+	printf("Inside the enclave ciphertext: ");
+	length = (int) len;
+	for(i = 0; i < length; i++){
+		printf("%x", ciphertext[i]);
+	}
+	
+	printf("\n");
+	
+	err = cbc_decrypt(ciphertext, plaintext, len, &cipher);
+	
+	printf("Inside the enclave plaintext: ");
+	for(i = 0; i < length; i++){
+		printf("%c", plaintext[i]);
+	}
+	
+	printf("\n");
+	
+	if(err != 0){
+		printf("Error occurred\n");
+	}
+}
+
+
+
+
+
+
+
+
+
+
+#define SHA256_LEN 32
 hash_state state;
 unsigned char sha256_out[SHA256_LEN] = {'\0'};
 
@@ -691,6 +1418,8 @@ void get_sha256(unsigned char *ciphertext, size_t len)
    }
 }
 
+
+
 #define HMAC_SHA256_LEN 32
 hmac_state hmac;
 unsigned long hmac_sha256_len = 32;
@@ -699,8 +1428,7 @@ int hash = 0;
 unsigned char keyy[6] = "hello";
 unsigned long keyylen = 5;
 #define KEYLEN 32
-//unsigned int keylen = 32;
-//uintptr_t key[keylen] = {'\0'};
+/*
 unsigned char *key = NULL;
 unsigned long keylen = 0;
 
@@ -741,7 +1469,7 @@ void gen_key(unsigned char *secretlen, size_t len)
    printf("\n");
 
 }
-
+*/
 void gen_hmac_sha256(unsigned char *plaintext, size_t len)
 {
 
