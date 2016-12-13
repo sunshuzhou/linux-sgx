@@ -289,6 +289,7 @@ int main(int argc, char* argv[])
    {
       size_t plen = len;
       size_t n = -1;
+      size_t m = -1;
       unsigned char *plaintext = NULL;
       unsigned char *ciphertext = NULL;
       if(!strcmp(argv[3], "-randomkey") && ((atoi(argv[4]) == 16) || (atoi(argv[4]) == 24) || (atoi(argv[4]) == 32) ) )
@@ -300,16 +301,13 @@ int main(int argc, char* argv[])
          printf("We only suppor 16, 24, and 32 bytes keys\n");
          return (-1);
       }
-
+int l;
       if(!strcmp(argv[5], "-infile"))
       {
          do
          {
-            //plaintext = (unsigned char *) malloc(len * sizeof(unsigned char));
-           // memset(plaintext, '\0', len);
-            //ciphertext = (unsigned char *) realloc(plaintext, * sizeof(unsigned char));
-            //memset(ciphertext, '\0', plen);
             len = read(fid, buf, BUFFERSIZE);
+            l = l + len;
             if (len < 0 )
             {
                close (fid);
@@ -321,8 +319,8 @@ int main(int argc, char* argv[])
                plen = plen + (16 - (plen % 16));
             }
             n++;
-            ciphertext = (unsigned char *) realloc(ciphertext, ((n*BUFFERSIZE) + plen) * sizeof(unsigned char));
-            encrypt_aes_ecb(global_eid, (unsigned char *) buf, len + 1, ciphertext, plen);
+            ciphertext = (unsigned char *) realloc(ciphertext, ((n * BUFFERSIZE) + plen) * sizeof(unsigned char));
+            encrypt_aes_ecb(global_eid, (unsigned char *) buf, len + 1, (unsigned char *)ciphertext + (n * BUFFERSIZE), plen);
             memset(buf,'\0',sizeof(buf));
          }
          while (len == sizeof(buf) - 1);
@@ -332,14 +330,19 @@ int main(int argc, char* argv[])
             return (-1);
          }
          printf("    App.cpp: aes ciphertext: \n");
-         print_blocks(ciphertext, plen);
-         printf("\n");
-         plaintext = (unsigned char *) malloc(((n*BUFFERSIZE) + len) * sizeof(unsigned char));
-         memset(plaintext,'\0',(n*BUFFERSIZE) + len);
-         decrypt_aes_ecb(global_eid, ciphertext, (n*BUFFERSIZE) + plen + 1, plaintext, (n*BUFFERSIZE) + len);
-         printf("\n");
+         print_blocks(ciphertext, (n * BUFFERSIZE) + plen);
          printf("\n");
 
+         plaintext = (unsigned char *) malloc((((n*BUFFERSIZE) + len) + 1) * sizeof(unsigned char));
+         memset(plaintext,'\0',(n*BUFFERSIZE) + len + 1);
+         do
+         {
+            m++;
+            decrypt_aes_ecb(global_eid, (unsigned char *)ciphertext + (m * BUFFERSIZE), BUFFERSIZE + 1, (unsigned char *)plaintext + (m * BUFFERSIZE), BUFFERSIZE);
+         } while(m < n - 1);
+         m++;
+         decrypt_aes_ecb(global_eid, (unsigned char *)ciphertext + (m * BUFFERSIZE),  plen + 1, (unsigned char *)plaintext + (m * BUFFERSIZE), len);
+//         printf("%s\n", plaintext);
 
       }
       else if(!strcmp(argv[5], "-intext"))
@@ -352,14 +355,17 @@ int main(int argc, char* argv[])
          }
          if(len < BUFFERSIZE)
          {
-            plaintext = (unsigned char *) malloc(len * sizeof(unsigned char));
-            memset(plaintext, '\0', len);
+            plaintext = (unsigned char *) malloc((len + 1) * sizeof(unsigned char));
+            memset(plaintext, '\0', len+1);
             ciphertext = (unsigned char *) malloc(plen * sizeof(unsigned char));
             memset(ciphertext, '\0', plen);
             encrypt_aes_ecb(global_eid, (unsigned char *) argv[6], len + 1, ciphertext, plen);
             printf("    App.cpp: aes ciphertext: \n");
             print_blocks(ciphertext, plen);
             printf("\n");
+            decrypt_aes_ecb(global_eid, ciphertext, plen + 1, plaintext, len);
+            printf("    App.cpp: aes plaintext: \n");
+            printf("%s\n", plaintext);
          }
          else
          {
