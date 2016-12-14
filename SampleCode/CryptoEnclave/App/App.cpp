@@ -285,13 +285,13 @@ int main(int argc, char* argv[])
       }
    }
 
+   size_t plen = len;
+   size_t n = -1;
+   size_t m = -1;
+   unsigned char *plaintext = NULL;
+   unsigned char *ciphertext = NULL;
    if(!strcmp(argv[2], "aes_ecb"))
    {
-      size_t plen = len;
-      size_t n = -1;
-      size_t m = -1;
-      unsigned char *plaintext = NULL;
-      unsigned char *ciphertext = NULL;
       if(!strcmp(argv[3], "-randomkey") && ((atoi(argv[4]) == 16) || (atoi(argv[4]) == 24) || (atoi(argv[4]) == 32) ) )
       {
          gen_key(global_eid, (unsigned char *)argv[4], strlen(argv[4]) + 1);
@@ -301,13 +301,11 @@ int main(int argc, char* argv[])
          printf("We only suppor 16, 24, and 32 bytes keys\n");
          return (-1);
       }
-int l;
       if(!strcmp(argv[5], "-infile"))
       {
          do
          {
             len = read(fid, buf, BUFFERSIZE);
-            l = l + len;
             if (len < 0 )
             {
                close (fid);
@@ -329,7 +327,7 @@ int l;
          {
             return (-1);
          }
-         printf("    App.cpp: aes ciphertext: \n");
+         printf("    App.cpp: aes ecb ciphertext: \n");
          print_blocks(ciphertext, (n * BUFFERSIZE) + plen);
          printf("\n");
 
@@ -360,11 +358,11 @@ int l;
             ciphertext = (unsigned char *) malloc(plen * sizeof(unsigned char));
             memset(ciphertext, '\0', plen);
             encrypt_aes_ecb(global_eid, (unsigned char *) argv[6], len + 1, ciphertext, plen);
-            printf("    App.cpp: aes ciphertext: \n");
+            printf("    App.cpp: aes ecb ciphertext: \n");
             print_blocks(ciphertext, plen);
             printf("\n");
             decrypt_aes_ecb(global_eid, ciphertext, plen + 1, plaintext, len);
-            printf("    App.cpp: aes plaintext: \n");
+            printf("    App.cpp: aes ecb plaintext: \n");
             printf("%s\n", plaintext);
          }
          else
@@ -380,83 +378,94 @@ int l;
       }
 
    }
+   if(!strcmp(argv[2], "aes_cbc"))
+   {
+      if(!strcmp(argv[3], "-randomkey") && ((atoi(argv[4]) == 16) || (atoi(argv[4]) == 24) || (atoi(argv[4]) == 32) ) )
+      {
+         gen_key(global_eid, (unsigned char *)argv[4], strlen(argv[4]) + 1);
+      }
+      else
+      {
+         printf("We only suppor 16, 24, and 32 bytes keys\n");
+         return (-1);
+      }
+      if(!strcmp(argv[5], "-infile"))
+      {
+         do
+         {
+            len = read(fid, buf, BUFFERSIZE);
+            if (len < 0 )
+            {
+               close (fid);
+               return (-1);
+            }
+            plen = len;
+            if(plen % 16 != 0)
+            {
+               plen = plen + (16 - (plen % 16));
+            }
+            n++;
+            ciphertext = (unsigned char *) realloc(ciphertext, ((n * BUFFERSIZE) + plen) * sizeof(unsigned char));
+            encrypt_aes_cbc(global_eid, (unsigned char *) buf, len + 1, (unsigned char *)ciphertext + (n * BUFFERSIZE), plen);
+            memset(buf,'\0',sizeof(buf));
+         }
+         while (len == sizeof(buf) - 1);
 
-/*
-    do {
-	printf("%d\n", i);
-        x = fread(((unsigned char *)plaintext) + chunk, 1, 1048576, fid);
-	i++;
-	printf("%d\n", i);
-       //       printf("%s", buf);
-       //err = hmac_process(&hmac, buf, (unsigned long)x);
-      // if (err != 0) {
-        //                fclose(in);
-          //              return err;
-            //    }
-       
-//       memset(buf, '\0', sizeof(buf));
- 	chunk = chunk + x;
-    } while (x == sizeof(buf));
+         if (close(fid)) 
+         {
+            return (-1);
+         }
+         printf("    App.cpp: aes cbc ciphertext: \n");
+         print_blocks(ciphertext, (n * BUFFERSIZE) + plen);
+         printf("\n");
 
-    if (fclose(fid) != 0) {
-       return -1;
-    }
-*/
+         plaintext = (unsigned char *) malloc((((n*BUFFERSIZE) + len) + 1) * sizeof(unsigned char));
+         memset(plaintext,'\0',(n*BUFFERSIZE) + len + 1);
+         do
+         {
+            m++;
+            decrypt_aes_cbc(global_eid, (unsigned char *)ciphertext + (m * BUFFERSIZE), BUFFERSIZE + 1, (unsigned char *)plaintext + (m * BUFFERSIZE), BUFFERSIZE);
+         } while(m < n - 1);
+         m++;
+         decrypt_aes_cbc(global_eid, (unsigned char *)ciphertext + (m * BUFFERSIZE),  plen + 1, (unsigned char *)plaintext + (m * BUFFERSIZE), len);
+         printf("%s\n", plaintext);
 
-//for(i = 0; i < size+1; i++)
-//printf("%s", plaintext);
-//printf(" %d %d %d\n",  chunk, sizeof(buf), readlen);
-//printf("%d\n", size);
-//    enclave_copy(global_eid, plaintext, strlen(plaintext)+1);
-
-/*
-    gen_sha256(global_eid, plaintext, strlen(plaintext)+1);
-    memset(plaintext, 0, MAX_BUF_LEN);
-    unsigned char ciphertext[MAX_BUF_LEN] = {'\0'};
-    printf("\nOutside the enclave - output ciphertext: \"%s\"\n", ciphertext);
-    get_sha256(global_eid, ciphertext, MAX_BUF_LEN);
-    printf("Outside the enclave - output ciphertext: \"");
-    unsigned char *i = ciphertext;
-    while(*i){
-         printf("%x", *i);
-         *i++;
-    }
-    printf("\"\n");
-    printf("\n\n\n\n\n");
-*/
-//    memset(plaintext, 0, MAX_BUF_LEN);
-//    gen_hmac_sha256(global_eid, plaintext, strlen(plaintext)+1);
-
-//   const sgx_key_request_t *key_request;
-//   sgx_key_128bit_t *key;
-//   sgx_status_t ret1 = sgx_get_key(key_request, key);
-
-
-
-/*
-    char secret[MAX_BUF_LEN] = "My secret string";
-    printf("\nDump secret: Copy a secret from the untrusted code to the enclave\n");
-    printf("Outside the enclave - input  secret: \"%s\"\n", secret);
-    dump_secret(global_eid, secret, strlen(secret)+1);
-
-    printf("Outside the enclave - input  secret: \"%s\"\n", secret);
-    memset(secret, 0, MAX_BUF_LEN);
-
-    printf("\nGet  secret: Copy a secret from the enclave to the untrusted code\n");
-    printf("Outside the enclave - output secret: \"%s\"\n", secret);
-
-    get_secret(global_eid, secret, MAX_BUF_LEN);
-    printf("Outside the enclave - output secret: \"%s\"\n", secret);
-*/
-/*
-    sgx_sealed_data_t secretData = {0};
-    uint32_t add_mac_txt_size = 0;
-    uint32_t txt_encrypt_size = strlen(secret)+1;
-    uint32_t secretDataSize = sgx_calc_sealed_data_size(add_mac_txt_size, txt_encrypt_size);
-*/
-
-
-
+         
+      }
+      else if(!strcmp(argv[5], "-intext"))
+      {
+         len = strlen(argv[6]);
+         plen = len;
+         if(plen % 16 != 0)
+         {
+           plen = plen + (16 - (plen % 16));
+         }
+         if(len < BUFFERSIZE)
+         {
+            plaintext = (unsigned char *) malloc((len + 1) * sizeof(unsigned char));
+            memset(plaintext, '\0', len+1);
+            ciphertext = (unsigned char *) malloc(plen * sizeof(unsigned char));
+            memset(ciphertext, '\0', plen);
+            encrypt_aes_cbc(global_eid, (unsigned char *) argv[6], len + 1, ciphertext, plen);
+            printf("    App.cpp: aes cbc ciphertext: \n");
+            print_blocks(ciphertext, plen);
+            printf("\n");
+            decrypt_aes_cbc(global_eid, ciphertext, plen + 1, plaintext, len);
+            printf("    App.cpp: aes cbc plaintext: \n");
+            printf("%s\n", plaintext);
+         }
+         else
+         {
+            printf("We do not support string literals more than %d\n", BUFFERSIZE);
+            return(-1);
+         }
+      }
+      else
+      {
+         printf("USAGE: %s -a <sha256|hmac_sha256|aes_ecb|aes_cbc> [-userkey|-randomkey <key|keylen>] -intext|-infile <input>\n", argv[0]);
+         return (-1);
+      }
+   }
   
     if(SGX_SUCCESS != sgx_destroy_enclave(global_eid))
     {
