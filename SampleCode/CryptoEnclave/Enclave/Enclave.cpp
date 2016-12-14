@@ -1078,10 +1078,6 @@ int cbc_decrypt(const unsigned char *ct, unsigned char *pt, unsigned long len, s
          if ((err = ECB_DEC(ct, tmp, &cbc->key)) != 0) {
             return err;
          }
-
-
-         
-    
 		for (x = 0; x < cbc->blocklen; x++) {
 		   tmpy       = tmp[x] ^ cbc->IV[x];
 		   cbc->IV[x] = ct[x];
@@ -1119,7 +1115,6 @@ void aes_create_key(int key_length)
 */
 
 
-unsigned char *IV = NULL;
 unsigned char *key = NULL;
 unsigned long keylen = 0;
 
@@ -1182,27 +1177,27 @@ void encrypt_aes_ecb(unsigned char *plaintext, size_t len, unsigned char *cipher
       }
    }	
 
-      while((chunk + BLOCKSIZE) <= (len - 1))
-      {
-         memset(current_block_plaintext, '\0', BLOCKSIZE);
-         memset(current_block_ciphertext, '\0', BLOCKSIZE);
-         memcpy(current_block_plaintext, (unsigned char *)plaintext + chunk, BLOCKSIZE);
-         ECB_ENC(current_block_plaintext, current_block_ciphertext, &ecb_key);
-         memcpy(ciphertext + chunk, current_block_ciphertext, BLOCKSIZE);
-         remained = remained - BLOCKSIZE;
-         chunk = chunk + BLOCKSIZE;
-      }
-      /* ZERO padding */
-      if(remained != 0)
-      {
-         memset(current_block_plaintext, '\0', BLOCKSIZE);
-         memset(current_block_ciphertext, '\0', BLOCKSIZE);
-         memcpy(current_block_plaintext, (unsigned char *)plaintext + chunk, remained);
-         memset((unsigned char *)current_block_plaintext + ((chunk + remained) % BLOCKSIZE), 0x00, BLOCKSIZE - remained);
-         ECB_ENC(current_block_plaintext, current_block_ciphertext, &ecb_key);
-         memcpy(ciphertext + chunk, current_block_ciphertext, BLOCKSIZE);
-         chunk = chunk + BLOCKSIZE;
-      }
+   while((chunk + BLOCKSIZE) <= (len - 1))
+   {
+      memset(current_block_plaintext, '\0', BLOCKSIZE);
+      memset(current_block_ciphertext, '\0', BLOCKSIZE);
+      memcpy(current_block_plaintext, (unsigned char *)plaintext + chunk, BLOCKSIZE);
+      ECB_ENC(current_block_plaintext, current_block_ciphertext, &ecb_key);
+      memcpy(ciphertext + chunk, current_block_ciphertext, BLOCKSIZE);
+      remained = remained - BLOCKSIZE;
+      chunk = chunk + BLOCKSIZE;
+   }
+   /* ZERO padding */
+   if(remained != 0)
+   {
+      memset(current_block_plaintext, '\0', BLOCKSIZE);
+      memset(current_block_ciphertext, '\0', BLOCKSIZE);
+      memcpy(current_block_plaintext, (unsigned char *)plaintext + chunk, remained);
+      memset((unsigned char *)current_block_plaintext + ((chunk + remained) % BLOCKSIZE), 0x00, BLOCKSIZE - remained);
+      ECB_ENC(current_block_plaintext, current_block_ciphertext, &ecb_key);
+      memcpy(ciphertext + chunk, current_block_ciphertext, BLOCKSIZE);
+      chunk = chunk + BLOCKSIZE;
+   }
 /*
    printf("Enclave.cpp: aes ciphertext: ");
    for(i = 0; i < plen; i++)
@@ -1260,74 +1255,126 @@ void decrypt_aes_ecb(unsigned char *ciphertext, size_t plen, unsigned char *plai
 }
 
 
-void encrypt_aes_cbc(unsigned char *plaintext, unsigned char *ciphertext, unsigned long len){
-	int err, i, length;
-	symmetric_CBC cipher;	
-/*
-   IV = (unsigned char *) malloc(16 * sizeof(unsigned char));
-   err = sgx_read_rand(IV, 16);
-   if (err != SGX_SUCCESS)
+unsigned char *IV = NULL;
+symmetric_CBC cipher;	
+
+void encrypt_aes_cbc(unsigned char *plaintext, size_t len, unsigned char *ciphertext, size_t plen)
+{
+   int i;
+   int err;
+   unsigned char current_block_plaintext[BLOCKSIZE] = {'\0'};
+   unsigned char current_block_ciphertext[BLOCKSIZE] = {'\0'};
+   unsigned int chunk = 0;
+   unsigned int remained = len - 1;
+
+   if(!init)
    {
-      printf("Enclave.cpp: Error generating key\n");
+      init = 1;
+      IV = (unsigned char *) malloc(16 * sizeof(unsigned char));
+      err = sgx_read_rand(IV, 16);
+      if (err != SGX_SUCCESS)
+      {
+         printf("Enclave.cpp: Error generating key\n");
+      }
+      printf("Enclave.cpp: Initialization Vector: \n");
+      for(i = 0; i < 16; i++)
+      {
+         printf("%02x", IV[i]);
+      }
+      printf("\n");
+
+      setup_key(IV, key, keylen, 0, &cipher);
+   }	
+
+   while((chunk + BLOCKSIZE) <= (len - 1))
+   {
+      memset(current_block_plaintext, '\0', BLOCKSIZE);
+      memset(current_block_ciphertext, '\0', BLOCKSIZE);
+      memcpy(current_block_plaintext, (unsigned char *)plaintext + chunk, BLOCKSIZE);
+      err = cbc_encrypt(current_block_plaintext, current_block_ciphertext, BLOCKSIZE, &cipher);
+      if(err != 0)
+      {
+         printf("Enclave.cpp: Error on creating cbc cipher\n");
+         break;
+      }
+      memcpy(ciphertext + chunk, current_block_ciphertext, BLOCKSIZE);
+      remained = remained - BLOCKSIZE;
+      chunk = chunk + BLOCKSIZE;
    }
-   printf("Enclave.cpp: Initialization Vector: ");
-   for(i = 0; i < 16; i++)
+   /* ZERO padding */
+   if(remained != 0)
    {
-      printf("%02x", IV[i]);
+      memset(current_block_plaintext, '\0', BLOCKSIZE);
+      memset(current_block_ciphertext, '\0', BLOCKSIZE);
+      memcpy(current_block_plaintext, (unsigned char *)plaintext + chunk, remained);
+      memset((unsigned char *)current_block_plaintext + ((chunk + remained) % BLOCKSIZE), 0x00, BLOCKSIZE - remained);
+      err = cbc_encrypt(current_block_plaintext, current_block_ciphertext, BLOCKSIZE, &cipher);
+      if(err != 0)
+      {
+         printf("Enclave.cpp: Error on creating cbc cipher\n");
+      }
+      memcpy(ciphertext + chunk, current_block_ciphertext, BLOCKSIZE);
+      chunk = chunk + BLOCKSIZE;
+   }
+}
+
+void decrypt_aes_cbc(unsigned char *ciphertext, size_t plen, unsigned char *plaintext, unsigned long len)
+{
+
+   int err;
+   unsigned char current_block_plaintext[16] = {'\0'};
+   unsigned char current_block_ciphertext[16] = {'\0'};
+   unsigned int chunk = 0;
+   unsigned int remained = len;
+   if(init)
+   {
+      init = 0;
+      setup_key(IV, key, keylen, 0, &cipher);
+   }
+
+   while((chunk + BLOCKSIZE) <= len - 1)
+   {
+      memset(current_block_plaintext, '\0', BLOCKSIZE);
+      memset(current_block_ciphertext, '\0', BLOCKSIZE);
+      memcpy(current_block_ciphertext, (unsigned char *)ciphertext + chunk, BLOCKSIZE);
+      err = cbc_decrypt(current_block_ciphertext, current_block_plaintext, BLOCKSIZE, &cipher);
+      if(err != 0)
+      {
+         printf("Enclave.cpp: Error on creating cbc cipher\n");
+         break;
+      }
+      memcpy(plaintext + chunk, current_block_plaintext, BLOCKSIZE);
+      remained = remained - BLOCKSIZE;
+      chunk = chunk + BLOCKSIZE;
+   }
+   /* ZERO padded */
+   if(remained != 0)
+   {
+      memset(current_block_plaintext, '\0', BLOCKSIZE);
+      memset(current_block_ciphertext, '\0', BLOCKSIZE);
+      memcpy(current_block_ciphertext, (unsigned char *)ciphertext + chunk, BLOCKSIZE);
+      err = cbc_decrypt(current_block_ciphertext, current_block_plaintext, BLOCKSIZE, &cipher);
+      if(err != 0)
+      {
+         printf("Enclave.cpp: Error on creating cbc cipher\n");
+      }
+      memcpy(plaintext + chunk, current_block_plaintext, remained);
+      remained = remained - remained;
+      chunk = chunk + BLOCKSIZE;
+   }
+/*
+   int i = 0
+   for(i = 0; i < plen; i++)
+   {
+      if((i % 16 == 0) && i > 0)
+      { 
+         printf("\n");
+      }
+      printf("%02x", ciphertext[i]);
    }
    printf("\n");
 */
-	
-	setup_key(IV, key, keylen, 0, &cipher);
-	length = (int) len;
-	
-	printf("Inside the enclave plaintext: ");
-	for(i = 0; i < length; i++){
-		printf("%c", plaintext[i]);
-	}
-	
-	printf("\n");
-	
-	err = cbc_encrypt(plaintext, ciphertext, len, &cipher);
-	
-	printf("Inside the enclave ciphertext: ");
-	for(i = 0; i < length; i++){
-		printf("%x", ciphertext[i]);
-	}
-	
-	printf("\n");
-	
-	if(err != 0){
-		printf("Error occurred\n");
-	}
-}
 
-void decrypt_aes_cbc(unsigned char *plaintext, unsigned char *ciphertext, unsigned long len){
-	int err, i, length; 
-	symmetric_CBC cipher;
-	
-	setup_key(IV, key, keylen, 0, &cipher);
-	
-	printf("Inside the enclave ciphertext: ");
-	length = (int) len;
-	for(i = 0; i < length; i++){
-		printf("%x", ciphertext[i]);
-	}
-	
-	printf("\n");
-	
-	err = cbc_decrypt(ciphertext, plaintext, len, &cipher);
-	
-	printf("Inside the enclave plaintext: ");
-	for(i = 0; i < length; i++){
-		printf("%c", plaintext[i]);
-	}
-	
-	printf("\n");
-	
-	if(err != 0){
-		printf("Error occurred\n");
-	}
 }
 
 
