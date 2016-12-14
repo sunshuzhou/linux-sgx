@@ -1219,7 +1219,7 @@ void decrypt_aes_ecb(unsigned char *ciphertext, size_t plen, unsigned char *plai
    unsigned int chunk = 0;
    unsigned int remained = len;
 
-   while((chunk + BLOCKSIZE) <= len - 1)
+   while((chunk + BLOCKSIZE) <= len)
    {
       memset(current_block_plaintext, '\0', BLOCKSIZE);
       memset(current_block_ciphertext, '\0', BLOCKSIZE);
@@ -1332,7 +1332,7 @@ void decrypt_aes_cbc(unsigned char *ciphertext, size_t plen, unsigned char *plai
       setup_key(IV, key, keylen, 0, &cipher);
    }
 
-   while((chunk + BLOCKSIZE) <= len - 1)
+   while((chunk + BLOCKSIZE) <= len)
    {
       memset(current_block_plaintext, '\0', BLOCKSIZE);
       memset(current_block_ciphertext, '\0', BLOCKSIZE);
@@ -1376,15 +1376,6 @@ void decrypt_aes_cbc(unsigned char *ciphertext, size_t plen, unsigned char *plai
 */
 
 }
-
-
-
-
-
-
-
-
-
 
 #define SHA256_LEN 32
 hash_state state;
@@ -1450,48 +1441,7 @@ int hash = 0;
 unsigned char keyy[6] = "hello";
 unsigned long keyylen = 5;
 #define KEYLEN 32
-/*
-unsigned char *key = NULL;
-unsigned long keylen = 0;
 
-void dump_key(unsigned char *secret, size_t len)
-{
-   if(len > 1)
-   {
-       keylen = len - 1;
-       key = (unsigned char *) malloc((keylen+1) * sizeof(unsigned char));
-       memset(key, '\0', keylen+1);
-       memcpy(key, secret, keylen);
-       printf("Enclave.cpp: hmac sha256 hash  key: %s\n", key);
-   }
-   else
-   {
-      ;
-   }
-}
-
-void gen_key(unsigned char *secretlen, size_t len)
-{
-   int err;
-   keylen =  atoi((char *)secretlen);
-   key = (unsigned char *) malloc(keylen * sizeof(unsigned char));
-   err = sgx_read_rand(key, keylen);
-   if (err != SGX_SUCCESS)
-   {
-      printf("Enclave.cpp: Error generating key\n");
-   }
-
-   int i;
-   printf("Enclave.cpp: hmac sha256 hash  key: ");
-
-   for(i = 0; i < keylen; i++)
-   {
-   printf("%02x", key[i]);
-   }
-   printf("\n");
-
-}
-*/
 void gen_hmac_sha256(unsigned char *plaintext, size_t len)
 {
 
@@ -1500,30 +1450,7 @@ void gen_hmac_sha256(unsigned char *plaintext, size_t len)
    {
       init = 1;
       XMEMCPY(&hash_descriptor[hash], &sha256_desc, sizeof(struct ltc_hash_descriptor));
-/*
-      unsigned int keylen = 32;
-     // unsigned char key[keylen] = {'\0'};
-      uintptr_t key[keylen];
-      //err = sgx_read_rand(key, sizeof(key));
-      err = sgx_read_rand((unsigned char *)&key, sizeof(key));
-      printf("%d %d %d %d %d\n", sizeof(key), keylen, sizeof(uintptr_t), sizeof(unsigned char*), sizeof(unsigned char));
-
-      if (err != SGX_SUCCESS)
-      {
-         printf("Enclave.cpp: Error generating key\n");
-      }
-
-         int i;
-         printf("\n");
-         for(i = 0; i < KEYLEN; i++)
-         {
-            printf("%02x", key[i]);
-         }
-         printf("\n");
-*/
       err = hmac_init(&hmac, hash, key, keylen);
-      //err = hmac_init(&hmac, hash, (unsigned char*) key, keylen);
-      //err = hmac_init(&hmac, hash, keyy, keyylen);
       if (err != 0) 
       {
          printf("Enclave.cpp: Error initializing hmac with sha256 hash!\n");
@@ -1554,104 +1481,7 @@ void gen_hmac_sha256(unsigned char *plaintext, size_t len)
       {
          printf("Enclave.cpp: Error creating hmac sha256 hash!\n");
       }
-}
-/*
-unsigned int SIZE = 10;
-uintptr_t r[SIZE];
-int err = sgx_read_rand((unsigned char *)&r, sizeof(r));
-   if (err != SGX_SUCCESS)
-       printf("ERROR\n");
-
-int i;
-for(i = 0; i < SIZE; i++)
-   printf("%08x \n", r[i]);
-printf("\n");
-*/
-
-
-/*
-
-   if(len > strlen(plaintext))
-   {
-       memcpy(savedPlaintext, plaintext, strlen(plaintext) + 1);
    }
-   else
-   {
-      memcpy(plaintext, "false", strlen("false") + 1);
-   }
-   printf("Inside  the enclave - input  plaintext:  \"%s\"\n", savedPlaintext);
-
-
-   hmac_state hmac;
-
-   size_t x;
-   int err = 0;
-   int hash = 0;
-   unsigned long hashsize;   
-   XMEMCPY(&hash_descriptor[hash], &sha256_desc, sizeof(struct ltc_hash_descriptor));
-   printf("%d\n", hash_descriptor[hash].hashsize);
-   printf("%d\n", LTC_HMAC_BLOCKSIZE);
-
-	unsigned char key[512] = "cow";
-	unsigned long keylen = strlen((char*)(char*)(char*)(char*)(char*)(char*)(char*)(char*)(char*)key);
-	printf("KKK%d\n", keylen);
-
-
-
-	err = hmac_init(&hmac, hash, key, keylen);
-	if (err != 0) {
-		printf("ERROR\n");
-       	//	return err;
-	}
-	
-	printf("INIT DONE\n");
-
-
-	unsigned char data[6] = "hello";
-	unsigned long datalen = strlen((char *) data);
-	printf("%s %d\n", data, strlen((char *)data));
-	err = hmac_process(&hmac, data, datalen);
-	if (err != 0) {
-		printf("ERROR\n");
-		//return -1;
-	}
-
-
-	unsigned char digest[MAXBLOCKSIZE] = {'\0'};
-	unsigned long dlen = sizeof(digest);
-	
-
-	err = hmac_done(&hmac, digest, &dlen);
-	//err = hmac_done(&hmac, out, &outlen);
-	if (err != 0) {
-		printf("ERROR\n");
-      		//return err;
-   	}
-	printf("DONE DONE\n");
-
-
-	unsigned char *i = digest;
-	while(*i)
-	{
-		printf("%x ", *i);
-		*i++;
-	}
-	printf("\n");
-*/
-   
-   
-   //printf("%d\n", sha256_desc.hashsize);
-//   unsigned char buf[10] = "1234";
-//   err = sha256_process(&hmac.md, buf, LTC_HMAC_BLOCKSIZE);
-//   sha256_desc = &sha256_desc; 
-//  memcpy(&sha256_desc, &sha256_desc, sizeof(struct ltc_hash_descriptor));
-//   XMEMCPY(&sha256_desc, &sha256_desc, sizeof(struct ltc_hash_descriptor));
-//   printf("%d\n", sha256_desc.hashsize);
-
-   
-
-
-
 }
 
 void get_hmac_sha256(unsigned char *ciphertext, size_t len) {
@@ -1663,13 +1493,5 @@ void get_hmac_sha256(unsigned char *ciphertext, size_t len) {
    {
       memcpy(ciphertext, "false", strlen("false") + 1);
    }
-/*
-    if (len > strlen((char *)savedCiphertext))
-    {
-        memcpy(ciphertext, savedCiphertext, strlen((char *)savedCiphertext) + 1);
-    } else {
-        memcpy(ciphertext, "false", strlen("false") + 1);
-    }
-*/
 }
 
