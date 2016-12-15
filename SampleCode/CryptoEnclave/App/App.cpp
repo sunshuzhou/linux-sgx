@@ -298,7 +298,7 @@ int main(int argc, char* argv[])
       }
       else
       {
-         printf("We only suppor 16, 24, and 32 bytes keys\n");
+         printf("We only support 16, 24, and 32 bytes keys\n");
          return (-1);
       }
       if(!strcmp(argv[5], "-infile"))
@@ -306,7 +306,7 @@ int main(int argc, char* argv[])
          do
          {
             len = read(fid, buf, BUFFERSIZE);
-            if (len < 0 )
+            if (len < 0)
             {
                close (fid);
                return (-1);
@@ -328,7 +328,7 @@ int main(int argc, char* argv[])
             return (-1);
          }
          printf("    App.cpp: aes ecb ciphertext: \n");
-         print_blocks(ciphertext, (n * BUFFERSIZE) + plen);
+         //print_blocks(ciphertext, (n * BUFFERSIZE) + plen);
          printf("\n");
 
          plaintext = (unsigned char *) malloc((((n*BUFFERSIZE) + len) + 1) * sizeof(unsigned char));
@@ -340,7 +340,7 @@ int main(int argc, char* argv[])
          } while(m < n - 1);
          m++;
          decrypt_aes_ecb(global_eid, (unsigned char *)ciphertext + (m * BUFFERSIZE),  plen + 1, (unsigned char *)plaintext + (m * BUFFERSIZE), len);
-//         printf("%s\n", plaintext);
+         printf("%s\n", plaintext);
 
       }
       else if(!strcmp(argv[5], "-intext"))
@@ -386,7 +386,7 @@ int main(int argc, char* argv[])
       }
       else
       {
-         printf("We only suppor 16, 24, and 32 bytes keys\n");
+         printf("We only support 16, 24, and 32 bytes keys\n");
          return (-1);
       }
       if(!strcmp(argv[5], "-infile"))
@@ -416,7 +416,7 @@ int main(int argc, char* argv[])
             return (-1);
          }
          printf("    App.cpp: aes cbc ciphertext: \n");
-         print_blocks(ciphertext, (n * BUFFERSIZE) + plen);
+         //print_blocks(ciphertext, (n * BUFFERSIZE) + plen);
          printf("\n");
 
          plaintext = (unsigned char *) malloc((((n*BUFFERSIZE) + len) + 1) * sizeof(unsigned char));
