@@ -1146,7 +1146,7 @@ void gen_key(unsigned char *secretlen, size_t len)
    }
 
    int i;
-   printf("Enclave.cpp: random key: \n");
+   printf("Enclave.cpp: random key: 0x");
    for(i = 0; i < keylen; i++)
    {
       printf("%02x", key[i]);
@@ -1276,7 +1276,7 @@ void encrypt_aes_cbc(unsigned char *plaintext, size_t len, unsigned char *cipher
       {
          printf("Enclave.cpp: Error generating key\n");
       }
-      printf("Enclave.cpp: Initialization Vector: \n");
+      printf("Enclave.cpp: Initialization Vector: 0x");
       for(i = 0; i < 16; i++)
       {
          printf("%02x", IV[i]);
