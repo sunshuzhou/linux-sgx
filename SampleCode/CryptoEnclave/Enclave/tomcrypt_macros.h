@@ -1,5 +1,7 @@
+#ifndef TOMCRYPT_MACROS_H_
+#define TOMCRYPT_MACROS_H_
 
-/* ---- HELPER MACROS ---- */
+#include "AES_tables.h"
 struct sha256_state {
     unsigned long length;
     unsigned int state[8], curlen;
@@ -28,6 +30,38 @@ int hmac_init(hmac_state *hmac, int hash, unsigned char *key, unsigned long keyl
 int hmac_process(hmac_state *hmac, unsigned char *in, unsigned long inlen);
 int hmac_done(hmac_state *hmac, unsigned char *out, unsigned long *outlen);
 int hash_memory(int hash, unsigned char *in, unsigned long inlen, unsigned char *out, unsigned long *outlen);
+
+
+struct rijndael_key {
+   unsigned int eK[60], dK[60];
+   int Nr;
+};		   
+			   
+typedef union Symmetric_key {
+   struct rijndael_key rijndael;
+   void   *data;
+} symmetric_key;
+
+typedef struct {
+   /** The index of the cipher chosen */
+   int                 cipher,
+   /** The block size of the given cipher */
+                       blocklen;
+   /** The current IV */
+   unsigned char       IV[16];
+   /** The scheduled key */
+   symmetric_key       key;
+} symmetric_CBC;
+
+
+int ECB_DEC(const unsigned char *ct, unsigned char *pt, symmetric_key *skey);
+int ECB_ENC(const unsigned char *pt, unsigned char *ct, symmetric_key *skey);
+int SETUP(const unsigned char *key, unsigned long keylen, int num_rounds, symmetric_key *skey);
+
+
+
+
+
 /*
 struct sha256_state {
     unsigned long length;
@@ -505,7 +539,5 @@ static inline unsigned long ROR64(unsigned long word, int i)
    #define byte(x, n) (((x) >> (8 * (n))) & 255)
 #endif
 
-/* $Source$ */
-/* $Revision$ */
-/* $Date$ */
+#endif 
 
