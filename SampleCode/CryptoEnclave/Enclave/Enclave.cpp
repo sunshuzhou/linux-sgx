@@ -44,7 +44,7 @@
 #include "sgx_trts.h"
 
 #include "tomcrypt_macros.h"
-
+#include "../App/app.h"
 
 void printf(const char *fmt, ...)
 {
@@ -1155,7 +1155,7 @@ void gen_key(unsigned char *secretlen, size_t len)
 }
 
 int init = 0;
-#define BUFFERSIZE 4096
+//#define BUFFERSIZE 4096
 #define BLOCKSIZE 16
 symmetric_key ecb_key;
 
