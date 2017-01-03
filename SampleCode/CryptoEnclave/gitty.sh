@@ -2,7 +2,7 @@
 # Committing made easy
 # Working with origin remote repository and master branch 
 # ./gitty FILE_TO_COMMIT ["COMMIT_COMMENTS"]
-# (C) Mohammad H. Mofrad, 2016
+# (C) Mohammad H. Mofrad, 2017
 
 # To setup under a Linux box after git clone REPO_ADDRESS
 # git config --global user.email EMAIL
