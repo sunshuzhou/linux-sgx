@@ -33,7 +33,7 @@
 
 // App.cpp : Define the entry point for the console application.
 //
-
+#include "app.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -54,7 +54,7 @@
 
 #define ENCLAVE_NAME "libenclave.signed.so"
 #define TOKEN_NAME   "Enclave.token"
-#define BUFFERSIZE   4096
+//#define BUFFERSIZE   4096
 #define SHA256_LEN        32
 #define HMAC_SHA256_LEN   32
 // Global data
@@ -380,9 +380,19 @@ int main(int argc, char* argv[])
    }
    if(!strcmp(argv[2], "aes_cbc"))
    {
-      if(!strcmp(argv[3], "-randomkey") && ((atoi(argv[4]) == 16) || (atoi(argv[4]) == 24) || (atoi(argv[4]) == 32) ) )
+      if(!strcmp(argv[3], "-randomkey") && ((atoi(argv[4]) == 16) || (atoi(argv[4]) == 24) || (atoi(argv[4]) == 32)))
       {
          gen_key(global_eid, (unsigned char *)argv[4], strlen(argv[4]) + 1);
+      }
+      else if(!strcmp(argv[3], "-userkey") && ((strlen(argv[4]) == 16) || (strlen(argv[4]) == 24) || (strlen(argv[4]) == 32)))
+      {
+         if(!strlen(argv[4]))
+         {
+            printf("We do not support empty secrets\n");    
+            return(-1);
+         } 
+         dump_key(global_eid, (unsigned char *)argv[4], strlen(argv[4]) + 1);
+         printf("    App.cpp: hmac sha256 hash  key: %s\n", argv[4] );
       }
       else
       {
@@ -428,7 +438,7 @@ int main(int argc, char* argv[])
          } while(m < n - 1);
          m++;
          decrypt_aes_cbc(global_eid, (unsigned char *)ciphertext + (m * BUFFERSIZE),  plen + 1, (unsigned char *)plaintext + (m * BUFFERSIZE), len);
-         printf("%s\n", plaintext);
+//         printf("%s\n", plaintext);
 
          
       }
