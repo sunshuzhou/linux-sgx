@@ -46,6 +46,7 @@
 #include "tomcrypt_macros.h"
 #include "../App/app.h"
 
+
 void printf(const char *fmt, ...)
 {
     char buf[BUFSIZ] = {'\0'};
@@ -1387,7 +1388,6 @@ void gen_sha256(unsigned char *plaintext, size_t len)
    if(!init)
    {
       init = 1;
-//      printf("Don't comment me!\n");
       sha256_init(&state);
    }	
 
