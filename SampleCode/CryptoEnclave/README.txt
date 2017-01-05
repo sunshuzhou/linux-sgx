@@ -60,13 +60,3 @@ TEST#4: AES CBC 128|192|256
 
 	# Input file + random key (16|24|32) (~200mb)
 	./app -a aes_ecb -randomkey 16 -infile gutenberg/out.txt
-	
-	0x6138c47b86bfbf374790a35074408449
-	
-	extensibility
-	throughput and CPU
-	bemchmarking
-	expriments with different buffer sizes
-	mbdTLS
-	remove the wrappers and add the code in the user space
-	
