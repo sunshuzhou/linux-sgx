@@ -1,26 +1,72 @@
---------------------------
-Purpose of Cryptographic operations
---------------------------
-The project demonstrates how to perform arbitary cryptographic operations
-inside an enclave for Intel(R) Software Guard Extensions projects development.
+# README.md
+# (c) Mohammad H. Mofrad, 2017
+# (e) hasanzadeh@cs.pitt.edu
 
-------------------------------------
-How to Build/Execute the Sample Code
-------------------------------------
-1. Install Intel(R) SGX SDK for Linux* OS
-2. Build the project with the prepared Makefile:
-    a. Hardware Mode, Debug build:
-        $ make SGX_MODE=HW SGX_DEBUG=1
-    b. Hardware Mode, Pre-release build:
-        $ make SGX_MODE=HW SGX_PRERELEASE=1
-    c. Hardware Mode, Release build:
-        $ make SGX_MODE=HW
-    d. Simulation Mode, Debug build:
-        $ make SGX_DEBUG=1
-    e. Simulation Mode, Pre-release build:
-        $ make SGX_PRERELEASE=1
-    f. Simulation Mode, Release build:
-        $ make
-3. Execute the binary directly:
-    $ ./app
+#Install CryptoEnclave app:
+install linux-sgx sdk on your machine ...
+make clean && make
 
+#Run CryptoEnclave app:
+./app -a <sha256|hmac_sha256|aes_ecb|aes_cbc> [-userkey|-randomkey <key|keylen>] -intext|-infile <input>
+
+#Test CryptoEnclave app:
+TEST#1: SHA 256
+	# Input text
+		./app -a sha256 -intext "the quick brown fox jumps over the lazy dog"
+		Verify the result at http://hash.online-convert.com/sha256-generator
+		
+	# Input file (~200mb)
+		./app -a sha256 -infile gutenberg/out.txt
+		Verify the result at https://md5file.com/calculator
+
+TEST#2: HMAC SHA 256
+	# Input text + input key
+		./app -a hmac_sha256 -userkey "password" -intext "the quick brown fox jumps over the lazy dog"
+		Verify the result at http://hash.online-convert.com/sha256-generator
+		
+	# Input text + random key	
+		./app -a hmac_sha256 -randomkey 8 -intext "the quick brown fox jumps over the lazy dog"
+
+	# Input file + input key (~100mb)
+		./app -a hmac_sha256 -userkey "password" -infile gutenberg/out1.txt
+		Verify results at http://hash.online-convert.com/sha256-generator
+
+	# Input file + input key (~200mb)
+		./app -a hmac_sha256 -userkey "password" -infile gutenberg/out.txt
+		
+	# Input text + random key (~200mb)
+		./app -a hmac_sha256 -randomkey 8 -infile gutenberg/out.txt
+
+TEST#3: AES ECB 128|192|256
+	# Input text + random key (16|24|32)
+	./app -a aes_ecb -randomkey 16 -intext "the quick brown fox jumps over the lazy dog"
+	Verify the result at http://aes.online-domain-tools.com/
+	
+	# Input file + random key (16|24|32)
+	./app -a aes_ecb -randomkey 16 -infile gutenberg/4300-0.txt
+	Verify the result at http://aes.online-domain-tools.com/
+	
+	# Input file + random key (16|24|32) (~200mb)
+	./app -a aes_ecb -randomkey 16 -infile gutenberg/out.txt
+
+TEST#4: AES CBC 128|192|256
+	# Input text + random key (16|24|32)
+	./app -a aes_cbc -randomkey 16 -intext "the quick brown fox jumps over the lazy dog"
+	Verify the result at http://aes.online-domain-tools.com/
+	
+	# Input file + random key (16|24|32)
+	./app -a aes_ecb -randomkey 16 -infile gutenberg/4300-0.txt
+	Verify the result at http://aes.online-domain-tools.com/
+
+	# Input file + random key (16|24|32) (~200mb)
+	./app -a aes_ecb -randomkey 16 -infile gutenberg/out.txt
+	
+	0x6138c47b86bfbf374790a35074408449
+	
+	extensibility
+	throughput and CPU
+	bemchmarking
+	expriments with different buffer sizes
+	mbdTLS
+	remove the wrappers and add the code in the user space
+	
