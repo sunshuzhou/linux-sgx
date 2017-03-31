@@ -54,33 +54,46 @@
 		~~~~
 
 * TEST#3: AES ECB 128|192|256
-~~~~
-	# Input text + random key (16|24|32)
+	
+	* Input text + random key (16|24|32)
+	~~~~
 	./app -a aes_ecb -randomkey 16 -intext "the quick brown fox jumps over the lazy dog"
 	Verify the result at http://aes.online-domain-tools.com/
+	~~~~
 	
-	# Input file + random key (16|24|32)
+	* Input file + random key (16|24|32)
+	~~~~
 	./app -a aes_ecb -randomkey 16 -infile gutenberg/4300-0.txt
 	Verify the result at http://aes.online-domain-tools.com/
+	~~~~
 	
-	# Input file + random key (16|24|32) (~200mb)
+	* Input file + random key (16|24|32) (~200mb)
+	~~~~
 	./app -a aes_ecb -randomkey 16 -infile gutenberg/out.txt
-~~~~
+	~~~~
+
 
 * TEST#4: AES CBC 128|192|256
-~~~~
-	# Input text + random key (16|24|32)
+
+	* Input text + random key (16|24|32)
+	~~~~
 	./app -a aes_cbc -randomkey 16 -intext "the quick brown fox jumps over the lazy dog"
 	Verify the result at http://aes.online-domain-tools.com/
+	~~~~
 	
-	# Input file + random key (16|24|32)
+	* Input file + random key (16|24|32)
+	~~~~
 	./app -a aes_ecb -randomkey 16 -infile gutenberg/4300-0.txt
 	Verify the result at http://aes.online-domain-tools.com/
+	~~~~
 
-	# Input file + random key (16|24|32) (~200mb)
+	* Input file + random key (16|24|32) (~200mb)
+	~~~~
 	./app -a aes_ecb -randomkey 16 -infile gutenberg/out.txt
-~~~~
+	~~~~
 
 ## Contact
-(c) Mohammad H. Mofrad, 2017
-(e) hasanzadeh@cs.pitt.edu
+	~~~~
+	(c) Mohammad H. Mofrad, 2017
+	(e) hasanzadeh@cs.pitt.edu
+	~~~~
