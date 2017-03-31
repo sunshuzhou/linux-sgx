@@ -94,7 +94,5 @@
 
 ## Contact
 
-	~~~~
 	(c) Mohammad H. Mofrad, 2017
 	(e) hasanzadeh@cs.pitt.edu
-	~~~~
