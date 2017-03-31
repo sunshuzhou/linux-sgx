@@ -95,4 +95,4 @@ make clean && make
 ## Contact
 
 	(c) Mohammad H. Mofrad, 2017
-	(e) hasanzadeh@cs.pitt.edu
+	(e) mohammad.hmofrad@pitt.edu
