@@ -1,6 +1,5 @@
 # README.md
-	(c) Mohammad H. Mofrad, 2017
-	(e) hasanzadeh@cs.pitt.edu
+
 
 # Install CryptoEnclave app:
 	## install linux-sgx sdk on your machine ...
@@ -60,3 +59,6 @@ TEST#4: AES CBC 128|192|256
 
 	# Input file + random key (16|24|32) (~200mb)
 	./app -a aes_ecb -randomkey 16 -infile gutenberg/out.txt
+
+(c) Mohammad H. Mofrad, 2017
+(e) hasanzadeh@cs.pitt.edu
