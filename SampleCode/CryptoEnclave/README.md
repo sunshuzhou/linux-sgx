@@ -1,9 +1,9 @@
 # README.md
-# (c) Mohammad H. Mofrad, 2017
-# (e) hasanzadeh@cs.pitt.edu
+	(c) Mohammad H. Mofrad, 2017
+	(e) hasanzadeh@cs.pitt.edu
 
 # Install CryptoEnclave app:
-	#install linux-sgx sdk on your machine ...
+	## install linux-sgx sdk on your machine ...
 	make clean && make
 
 # Run CryptoEnclave app:
