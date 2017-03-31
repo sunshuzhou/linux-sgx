@@ -1,13 +1,13 @@
 ## Install CryptoEnclave app:
-
-	# First install linux-sgx sdk on your machine.
-	make clean && make
-
+~~~~
+# First install linux-sgx sdk on your machine.
+make clean && make
+~~~~
 
 ## Run CryptoEnclave app:
-
+~~~~
 ./app -a <sha256|hmac_sha256|aes_ecb|aes_cbc> [-userkey|-randomkey <key|keylen>] -intext|-infile <input>
-
+~~~~
 
 ## Test CryptoEnclave app:	
 * TEST #1: SHA 256
