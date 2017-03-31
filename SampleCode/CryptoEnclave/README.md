@@ -2,14 +2,14 @@
 # (c) Mohammad H. Mofrad, 2017
 # (e) hasanzadeh@cs.pitt.edu
 
-#Install CryptoEnclave app:
-install linux-sgx sdk on your machine ...
-make clean && make
+# Install CryptoEnclave app:
+	#install linux-sgx sdk on your machine ...
+	make clean && make
 
-#Run CryptoEnclave app:
+# Run CryptoEnclave app:
 ./app -a <sha256|hmac_sha256|aes_ecb|aes_cbc> [-userkey|-randomkey <key|keylen>] -intext|-infile <input>
 
-#Test CryptoEnclave app:
+# Test CryptoEnclave app:
 TEST#1: SHA 256
 	# Input text
 		./app -a sha256 -intext "the quick brown fox jumps over the lazy dog"
