@@ -25,24 +25,33 @@
 	~~~~
 
 * TEST#2: HMAC SHA 256
-~~~~
-	# Input text + input key
+
+	* Input text + input key
+		~~~~
 		./app -a hmac_sha256 -userkey "password" -intext "the quick brown fox jumps over the lazy dog"
 		Verify the result at http://hash.online-convert.com/sha256-generator
+		~~~~
 		
-	# Input text + random key	
+	* Input text + random key	
+		~~~~
 		./app -a hmac_sha256 -randomkey 8 -intext "the quick brown fox jumps over the lazy dog"
+		~~~~
 
-	# Input file + input key (~100mb)
+	* Input file + input key (~100mb)
+		~~~~
 		./app -a hmac_sha256 -userkey "password" -infile gutenberg/out1.txt
 		Verify results at http://hash.online-convert.com/sha256-generator
+		~~~~
 
-	# Input file + input key (~200mb)
+	* Input file + input key (~200mb)
+		~~~~
 		./app -a hmac_sha256 -userkey "password" -infile gutenberg/out.txt
+		~~~~
 		
-	# Input text + random key (~200mb)
+	* Input text + random key (~200mb)
+		~~~~
 		./app -a hmac_sha256 -randomkey 8 -infile gutenberg/out.txt
-~~~~
+		~~~~
 
 * TEST#3: AES ECB 128|192|256
 ~~~~
