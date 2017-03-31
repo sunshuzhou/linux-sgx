@@ -10,6 +10,7 @@
 ## Test CryptoEnclave app:
 	
 * TEST #1: SHA 256
+
 #Input text
 ./app -a sha256 -intext "the quick brown fox jumps over the lazy dog"
 Verify the result at http://hash.online-convert.com/sha256-generator
