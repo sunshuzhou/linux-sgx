@@ -32,7 +32,8 @@ Follow the instructions in the [linux-sgx-driver](https://github.com/01org/linux
 
 Build the Intel(R) SGX SDK and Intel(R) SGX PSW Package
 -------------------------------------------------------
-###Prerequisites:
+
+### Prerequisites:
 - Ensure that you have the following required operating systems:  
   Ubuntu\* Desktop-14.04-LTS 64bits
 - Use the following command to install the required tools to build Intel(R) SGX SDK:  
